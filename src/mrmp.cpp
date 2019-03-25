@@ -5,6 +5,8 @@
 #include <CGAL/Arr_batched_point_location.h>
 
 
+static constexpr int POLYLINE_APPROXIMATION = 100;
+
 template <int n>
 static Inset_polygon D(const Point& p)
 {
@@ -33,9 +35,12 @@ static Inset_polygon D(const Point& p)
 }
 
 
-static bool check_inside(const Inset_polygon& polygon, const Point& point)
+static bool check_inside(const Point& point, const std::vector<Point>& polyline)
 {
-    return true;
+    typedef typename CGAL::Kernel_traits<Point>::Kernel K;
+    CGAL::Bounded_side bounded_side = CGAL::bounded_side_2(polyline.begin(), polyline.end(), point, K());
+
+    return (bounded_side != CGAL::ON_UNBOUNDED_SIDE);
 }
 
 
@@ -55,14 +60,23 @@ void remove_start_target_configs(
     for (const Inset_polygon& f : F) {
         Inset_polygon_with_holes pgn;
 
+        std::vector<std::pair<double, double>> polyline_d;
+        std::vector<Point> polyline;
+        for (auto iter = f.curves_begin(); iter != f.curves_end(); ++iter) {
+            iter->polyline_approximation(POLYLINE_APPROXIMATION, std::back_inserter(polyline_d));
+        }
+        for (auto p : polyline_d) {
+            polyline.emplace_back(p.first, p.second);
+        }
+
         for (const Point& s : S) {
-            if (check_inside(f, s)) {
+            if (check_inside(s, polyline)) {
                 pgn.add_hole(D<2>(s));
             }
         }
 
         for (const Point& t : T) {
-            if (check_inside(f, t)) {
+            if (check_inside(t, polyline)) {
                 pgn.add_hole(D<2>(t));
             }
         }

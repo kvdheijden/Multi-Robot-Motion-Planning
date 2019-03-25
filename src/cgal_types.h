@@ -22,6 +22,7 @@ typedef CGAL::Gps_traits_2<ConicTraits>                             Gps_traits;
 typedef CGAL::Polygon_2<Kernel>                                     Polygon;
 typedef CGAL::Point_2<Kernel>                                       Point;
 typedef CGAL::Circle_2<Kernel>                                      Circle;
+typedef CGAL::Segment_2<Kernel>                                     Segment;
 
 typedef Gps_traits::Polygon_2                                       Inset_polygon;
 typedef Gps_traits::Polygon_with_holes_2                            Inset_polygon_with_holes;

@@ -22,7 +22,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             this, SIGNAL(changed()),
             sg, SLOT(modelChanged())
     );
-    sg->setDiscPen(QPen(Qt::green, 1.));
+    sg->setDiscPen(QPen(Qt::green, .1));
     scene.addItem(sg);
 
     tg = new ConfigurationGraphicsItem(targetConfigs);
@@ -30,7 +30,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             this, SIGNAL(changed()),
             tg, SLOT(modelChanged())
     );
-    tg->setDiscPen(QPen(Qt::magenta, 1.));
+    tg->setDiscPen(QPen(Qt::magenta, .1));
     scene.addItem(tg);
 
     fsg = new FreeSpaceGraphicsItem(free_space);
@@ -38,7 +38,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             this, SIGNAL(changed()),
             fsg, SLOT(modelChanged())
     );
-    fsg->setCurvesPen(QPen(Qt::blue, 1.));
+    fsg->setCurvesPen(QPen(Qt::blue, .1));
     scene.addItem(fsg);
 
     // Setup GraphicsViewInputs
@@ -60,8 +60,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             this, SLOT(processInputTargetConfigs(CGAL::Object))
     );
 
-    QObject::connect(this->actionExit, SIGNAL(triggered()), this, SLOT(close()));
-
     iGroup = new QActionGroup(this);
     iGroup->addAction(this->actionInsertNone);
     iGroup->addAction(this->actionInsertWorkspace);
@@ -76,6 +74,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
     this->graphicsView->setScene(&scene);
     this->graphicsView->setMouseTracking(true);
     this->graphicsView->matrix().scale(1, -1);
+
+    QRectF bbox(-50, -50, 100, 100);
+    this->graphicsView->setSceneRect(bbox);
+    this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
 }
 
 MainWindow::~MainWindow()
@@ -138,6 +140,8 @@ void MainWindow::on_actionNew_triggered()
     startConfigs.clear();
     targetConfigs.clear();
     free_space.clear();
+
+    scene.clear();
 
     emit(changed());
 }
