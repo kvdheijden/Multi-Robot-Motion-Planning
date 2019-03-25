@@ -4,7 +4,7 @@ set(CMAKE_AUTOMOC ON)
 
 # CGAL and its components
 find_package(CGAL COMPONENTS Core Qt5 REQUIRED)
-include( ${CGAL_USE_FILE} )
+include(${CGAL_USE_FILE})
 
 # Boost and its components
 find_package(Boost COMPONENTS filesystem REQUIRED)
@@ -23,10 +23,11 @@ qt5_add_resources(CGAL_Qt5_RESOURCE_FILES)
 # Create the library and link it
 add_executable(mrmp
         src/main.cpp
+        src/mrmp.cpp
         src/MainWindow.cpp
         ${CGAL_Qt5_UI_FILES}
         ${CGAL_Qt5_RESOURCE_FILES}
-        ${CGAL_Qt5_MOC_FILES} src/cgal_types.h src/WorkspaceGraphicsItem.h src/mrmp.cpp src/mrmp.h)
+        ${CGAL_Qt5_MOC_FILES})
 
 qt5_use_modules(mrmp Xml Script OpenGL Svg)
 add_to_cached_list(CGAL_EXECUTABLE_TARGETS mrmp)
