@@ -22,6 +22,9 @@ int main(int argc, char *argv[])
 {
     snap_xdg_fix();
 
+    CGAL::set_pretty_mode(std::cout);
+    CGAL::set_pretty_mode(std::cerr);
+
     QApplication app(argc, argv);
     MainWindow mainWindow;
     mainWindow.show();

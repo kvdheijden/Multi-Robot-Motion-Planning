@@ -98,6 +98,9 @@ void MainWindow::processInputWorkspace(CGAL::Object object)
 {
     std::list<Point> points;
     if (CGAL::assign(points, object)) {
+
+        clear_objects();
+
         CGAL_assertion(points.front() == points.back());
         points.pop_front();
         Polygon p(points.begin(), points.end());
@@ -119,6 +122,13 @@ void MainWindow::processInputStartConfigs(CGAL::Object object)
 {
     Point point;
     if (CGAL::assign(point, object)) {
+        if (!check_inside(point, workspace)) {
+            // Error
+            QMessageBox messageBox;
+            messageBox.critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
+            messageBox.setFixedSize(500, 200);
+            return;
+        }
         startConfigs.push_back(point);
     }
     emit(changed());
@@ -128,6 +138,13 @@ void MainWindow::processInputTargetConfigs(CGAL::Object object)
 {
     Point point;
     if (CGAL::assign(point, object)) {
+        if (!check_inside(point, workspace)) {
+            // Error
+            QMessageBox messageBox;
+            messageBox.critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
+            messageBox.setFixedSize(500, 200);
+            return;
+        }
         targetConfigs.push_back(point);
     }
     emit(changed());
@@ -135,14 +152,7 @@ void MainWindow::processInputTargetConfigs(CGAL::Object object)
 
 void MainWindow::on_actionNew_triggered()
 {
-    // Clear data structures
-    workspace.clear();
-    startConfigs.clear();
-    targetConfigs.clear();
-    free_space.clear();
-
-    scene.clear();
-
+    clear_objects();
     emit(changed());
 }
 
@@ -214,8 +224,32 @@ void MainWindow::on_actionGenerateFreeSpace_triggered()
 
     std::vector<Inset_polygon> F;
     generate_free_space(workspace, F);
-    remove_start_target_configs(F, startConfigs, targetConfigs, free_space);
+    if (remove_start_target_configs(F, startConfigs, targetConfigs, free_space)) {
+        // Error
+        QMessageBox messageBox;
+        messageBox.critical(nullptr, "Invalid Polygon", "Unequal number of start and target configurations in free space component");
+        messageBox.setFixedSize(500, 200);
+        return;
+    }
+
     emit(changed());
+}
+
+void MainWindow::on_actionGenerateMotionGraph_triggered()
+{
+    std::cerr << "F(" << free_space.size() << ") = [" << std::endl;
+    for (const Inset_polygon_with_holes& F_i : free_space) {
+//        std::cerr << F_i << ", " << std::endl;
+//        boost::undirected_graph<> G_i;
+//        if (generate_motion_graph(F_i, G_i)) {
+//            // Error
+//            QMessageBox messageBox;
+//            messageBox.critical(nullptr, "Error", "Error while generating motion graph");
+//            messageBox.setFixedSize(500, 200);
+//            return;
+//        }
+    }
+    std::cerr << "]" << std::endl;
 }
 
 void MainWindow::on_actionRecenter_triggered()
@@ -223,4 +257,18 @@ void MainWindow::on_actionRecenter_triggered()
     QRectF bbox = wg->boundingRect();
     this->graphicsView->setSceneRect(bbox);
     this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
+}
+
+void MainWindow::clear_UI()
+{
+    scene.clear();
+}
+
+void MainWindow::clear_objects()
+{
+    // Clear data structures
+    workspace.clear();
+    startConfigs.clear();
+    targetConfigs.clear();
+    free_space.clear();
 }

@@ -35,6 +35,9 @@ private:
     std::vector<Inset_polygon_with_holes> free_space;
     FreeSpaceGraphicsItem *fsg;
 
+    void clear_UI();
+    void clear_objects();
+
 public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override;
@@ -58,6 +61,7 @@ public slots:
     void on_actionInsertTargetConfigs_toggled(bool checked);
 
     void on_actionGenerateFreeSpace_triggered();
+    void on_actionGenerateMotionGraph_triggered();
 
     void on_actionRecenter_triggered();
 

@@ -3,10 +3,11 @@
 
 #include <CGAL/CORE_algebraic_number_traits.h>
 #include <CGAL/Cartesian.h>
+
 #include <CGAL/Arr_conic_traits_2.h>
+#include <CGAL/Gps_traits_2.h>
+
 #include <CGAL/Polygon_2.h>
-#include <CGAL/Circle_2.h>
-#include <CGAL/offset_polygon_2.h>
 
 typedef CGAL::CORE_algebraic_number_traits                          Nt_traits;
 
@@ -26,6 +27,5 @@ typedef CGAL::Segment_2<Kernel>                                     Segment;
 
 typedef Gps_traits::Polygon_2                                       Inset_polygon;
 typedef Gps_traits::Polygon_with_holes_2                            Inset_polygon_with_holes;
-
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
