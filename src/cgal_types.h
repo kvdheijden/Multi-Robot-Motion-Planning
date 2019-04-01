@@ -1,31 +1,26 @@
 #ifndef MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
 #define MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
 
-#include <CGAL/CORE_algebraic_number_traits.h>
-#include <CGAL/Cartesian.h>
-
-#include <CGAL/Arr_conic_traits_2.h>
-#include <CGAL/Gps_traits_2.h>
-
+#include <CGAL/Exact_predicates_exact_constructions_kernel.h>
+#include <CGAL/Exact_circular_kernel_2.h>
 #include <CGAL/Polygon_2.h>
+#include <CGAL/Polygon_with_holes_2.h>
+#include <CGAL/Gps_circle_segment_traits_2.h>
+#include <CGAL/General_polygon_set_2.h>
 
-typedef CGAL::CORE_algebraic_number_traits                          Nt_traits;
+typedef CGAL::Exact_predicates_exact_constructions_kernel   Kernel;
+typedef CGAL::Exact_circular_kernel_2                       CircularKernel;
+typedef Kernel::Point_2                                     Input_point;
+typedef CGAL::Polygon_2<Kernel>                             Input_polygon;
+typedef Kernel::Circle_2                                    Circle;
+typedef Kernel::Segment_2                                   Segment;
 
-typedef Nt_traits::Rational                                         Rational;
-typedef CGAL::Cartesian<Rational>                                   Kernel;
+typedef CGAL::Gps_circle_segment_traits_2<Kernel>           Traits;
+typedef Traits::Point_2                                     Point;
+typedef Traits::Polygon_2                                   Polygon;
+typedef Traits::Polygon_with_holes_2                        Polygon_with_holes;
 
-typedef Nt_traits::Algebraic                                        Algebraic;
-typedef CGAL::Cartesian<Algebraic>                                  Alg_kernel;
-
-typedef CGAL::Arr_conic_traits_2<Kernel, Alg_kernel, Nt_traits>     ConicTraits;
-typedef CGAL::Gps_traits_2<ConicTraits>                             Gps_traits;
-
-typedef CGAL::Polygon_2<Kernel>                                     Polygon;
-typedef CGAL::Point_2<Kernel>                                       Point;
-typedef CGAL::Circle_2<Kernel>                                      Circle;
-typedef CGAL::Segment_2<Kernel>                                     Segment;
-
-typedef Gps_traits::Polygon_2                                       Inset_polygon;
-typedef Gps_traits::Polygon_with_holes_2                            Inset_polygon_with_holes;
+typedef CGAL::General_polygon_set_2<Traits>                 General_polygon_set;
+typedef General_polygon_set::Arrangement_2                  Arrangement;
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H

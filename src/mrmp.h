@@ -5,20 +5,18 @@
 
 #include <boost/graph/undirected_graph.hpp>
 
-void generate_free_space(const Polygon& W, std::vector<Inset_polygon>& F);
+bool check_inside(const Input_point& point, const Input_polygon& polygon);
 
-bool check_inside(const Point& point, const Polygon& polygon);
-bool check_inside(const Point& point, const std::vector<Point>& polyline);
+void generate_free_space(const Input_polygon& W, std::vector<Polygon>& F);
 
-int remove_start_target_configs(std::vector<Inset_polygon>& F,
-                                const std::vector<Point>& S,
-                                const std::vector<Point>& T,
-                                std::vector<Inset_polygon_with_holes>& F_star);
+General_polygon_set remove_start_target_configs(const Polygon& F,
+                                const std::vector<Input_point>& S,
+                                const std::vector<Input_point>& T);
 
-int generate_motion_graph(const Inset_polygon_with_holes& F_i,
-                          const std::vector<Point>& S,
-                          const std::vector<Point>& T,
-                          boost::undirected_graph<>& G_i);
+//int generate_motion_graph(const Polygon_with_holes& F_i,
+//                          const std::vector<Point>& S,
+//                          const std::vector<Point>& T,
+//                          boost::undirected_graph<>& G_i);
 
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_MRMP_H

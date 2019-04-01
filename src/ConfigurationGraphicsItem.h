@@ -10,9 +10,10 @@
 class ConfigurationGraphicsItem : public CGAL::Qt::GraphicsItem {
 
 public:
-    inline ConfigurationGraphicsItem(const std::vector<Point>& configs) : configs(configs)
+    inline ConfigurationGraphicsItem(const std::vector<Input_point>& configs) : configs(configs)
     {
         this->setDiscPen(QPen(Qt::red, 1.));
+        this->setDiscBrush(QBrush(Qt::red));
     }
 
     inline void modelChanged()
@@ -22,29 +23,8 @@ public:
 
     inline QRectF boundingRect() const
     {
-        qreal xmin = INFINITY;
-        qreal xmax = -INFINITY;
-        qreal ymin = INFINITY;
-        qreal ymax = -INFINITY;
-
-        for (const Point& config : configs) {
-            qreal x = config.x().doubleValue();
-            qreal y = config.y().doubleValue();
-            if (x < xmin) {
-                xmin = x;
-            }
-            if (x > xmax) {
-                xmax = x;
-            }
-            if (y < ymin) {
-                ymin = y;
-            }
-            if (y > ymax) {
-                ymax = y;
-            }
-        }
-
-        return {xmin, ymin, xmax - xmin, ymax - ymin};
+        CGAL::Bbox_2 bbox = CGAL::bbox_2(configs.begin(), configs.end());
+        return {bbox.xmin(), bbox.ymin(), bbox.xmax() - bbox.xmin(), bbox.ymax() - bbox.ymin()};
     }
 
     void setDiscPen(const QPen& pen)
@@ -57,20 +37,32 @@ public:
         return dPen;
     }
 
+    void setDiscBrush(const QBrush& brush)
+    {
+        this->dBrush = brush;
+    }
+
+    const QBrush& discBrush() const
+    {
+        return dBrush;
+    }
+
     inline void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
     {
         CGAL::Qt::PainterOstream<Kernel> painterOstream(painter);
 
         painter->setPen(this->discPen());
-        for (const Point& config : configs) {
+        painter->setBrush(this->discBrush());
+        for (const Input_point& config : configs) {
             Circle unit_disc(config, 1.);
             painterOstream << unit_disc;
         }
     }
 
 protected:
-    const std::vector<Point>& configs;
+    const std::vector<Input_point>& configs;
     QPen dPen;
+    QBrush dBrush;
 };
 
 

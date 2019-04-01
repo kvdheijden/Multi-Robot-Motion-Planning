@@ -15,6 +15,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             this, SIGNAL(changed()),
             wg, SLOT(modelChanged())
     );
+    wg->setEdgesPen(QPen(Qt::black, .1));
+    wg->setVerticesPen(QPen(Qt::black, .1));
     scene.addItem(wg);
 
     sg = new ConfigurationGraphicsItem(startConfigs);
@@ -23,6 +25,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             sg, SLOT(modelChanged())
     );
     sg->setDiscPen(QPen(Qt::green, .1));
+    sg->setDiscBrush(QBrush(Qt::green));
     scene.addItem(sg);
 
     tg = new ConfigurationGraphicsItem(targetConfigs);
@@ -31,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
             tg, SLOT(modelChanged())
     );
     tg->setDiscPen(QPen(Qt::magenta, .1));
+    tg->setDiscBrush(QBrush(Qt::magenta));
     scene.addItem(tg);
 
     fsg = new FreeSpaceGraphicsItem(free_space);
@@ -75,7 +79,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
     this->graphicsView->setMouseTracking(true);
     this->graphicsView->matrix().scale(1, -1);
 
-    QRectF bbox(-50, -50, 100, 100);
+    QRectF bbox(-25, -25, 50, 50);
     this->graphicsView->setSceneRect(bbox);
     this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
 }
@@ -86,24 +90,27 @@ MainWindow::~MainWindow()
     delete si;
     delete ti;
 
+    delete fsg;
     delete wg;
     delete sg;
     delete tg;
-    delete fsg;
 
     delete iGroup;
 }
 
 void MainWindow::processInputWorkspace(CGAL::Object object)
 {
-    std::list<Point> points;
+    std::list<Input_point> points;
     if (CGAL::assign(points, object)) {
+        if (points.size() <= 2) {
+            return;
+        }
 
         clear_objects();
 
         CGAL_assertion(points.front() == points.back());
         points.pop_front();
-        Polygon p(points.begin(), points.end());
+        Input_polygon p(points.begin(), points.end());
         if (!p.is_simple()) {
             // Error
             QMessageBox messageBox;
@@ -120,7 +127,7 @@ void MainWindow::processInputWorkspace(CGAL::Object object)
 
 void MainWindow::processInputStartConfigs(CGAL::Object object)
 {
-    Point point;
+    Input_point point;
     if (CGAL::assign(point, object)) {
         if (!check_inside(point, workspace)) {
             // Error
@@ -136,7 +143,7 @@ void MainWindow::processInputStartConfigs(CGAL::Object object)
 
 void MainWindow::processInputTargetConfigs(CGAL::Object object)
 {
-    Point point;
+    Input_point point;
     if (CGAL::assign(point, object)) {
         if (!check_inside(point, workspace)) {
             // Error
@@ -221,35 +228,18 @@ void MainWindow::on_actionInsertTargetConfigs_toggled(bool checked)
 void MainWindow::on_actionGenerateFreeSpace_triggered()
 {
     free_space.clear();
-
-    std::vector<Inset_polygon> F;
+    std::vector<Polygon> F;
     generate_free_space(workspace, F);
-    if (remove_start_target_configs(F, startConfigs, targetConfigs, free_space)) {
-        // Error
-        QMessageBox messageBox;
-        messageBox.critical(nullptr, "Invalid Polygon", "Unequal number of start and target configurations in free space component");
-        messageBox.setFixedSize(500, 200);
-        return;
+    for (const Polygon& f : F) {
+        General_polygon_set gps = remove_start_target_configs(f, startConfigs, targetConfigs);
+        free_space.push_back(std::make_pair(f, gps));
     }
-
     emit(changed());
 }
 
 void MainWindow::on_actionGenerateMotionGraph_triggered()
 {
-    std::cerr << "F(" << free_space.size() << ") = [" << std::endl;
-    for (const Inset_polygon_with_holes& F_i : free_space) {
-//        std::cerr << F_i << ", " << std::endl;
-//        boost::undirected_graph<> G_i;
-//        if (generate_motion_graph(F_i, G_i)) {
-//            // Error
-//            QMessageBox messageBox;
-//            messageBox.critical(nullptr, "Error", "Error while generating motion graph");
-//            messageBox.setFixedSize(500, 200);
-//            return;
-//        }
-    }
-    std::cerr << "]" << std::endl;
+
 }
 
 void MainWindow::on_actionRecenter_triggered()
@@ -267,8 +257,8 @@ void MainWindow::clear_UI()
 void MainWindow::clear_objects()
 {
     // Clear data structures
+    free_space.clear();
     workspace.clear();
     startConfigs.clear();
     targetConfigs.clear();
-    free_space.clear();
 }

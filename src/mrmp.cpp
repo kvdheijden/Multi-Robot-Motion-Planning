@@ -1,132 +1,142 @@
 #include "mrmp.h"
 
 #include <CGAL/Boolean_set_operations_2.h>
-#include <CGAL/Polygon_2_algorithms.h>
-#include <CGAL/Arr_batched_point_location.h>
-#include <CGAL/offset_polygon_2.h>
+#include <CGAL/approximated_offset_2.h>
 
-
-static constexpr int POLYLINE_APPROXIMATION = 100;
-
-static void polyline_approximation(const Inset_polygon& f, std::vector<Point>& polyline)
-{
-    for (auto iter = f.curves_begin(); iter != f.curves_end(); ++iter) {
-        std::vector<std::pair<double, double>> polyline_d;
-
-        iter->polyline_approximation(POLYLINE_APPROXIMATION, std::back_inserter(polyline_d));
-
-        for (auto p : polyline_d) {
-            polyline.emplace_back(p.first, p.second);
-        }
-    }
-}
-
+//template <int k>
+//static Polygon kgon(const Point& p, double radius)
+//{
+//    std::vector<Point> polyline;
+//    double angle = 360.0 / k;
+//
+//    for (int i = 0; i < k; i++) {
+//        double x = radius * sin(i * angle);
+//        double y = radius * cos(i * angle);
+//        polyline.push_back(Point(x, y));
+//    }
+//
+//    return Polygon(polyline.begin(), polyline.end());
+//}
+//
 template <int n>
-static Inset_polygon D(const Point& p)
+static Polygon D(const Input_point& p)
 {
-    // Construct the unit disc
-    Circle circle(p, Rational(n*n));
+    Circle circle(p, Kernel::FT(n*n));
 
+    Traits traits;
+    Traits::Make_x_monotone_2 make_x_monotone = traits.make_x_monotone_2_object();
 
-    // Subdivide the circle into two x-monotone arcs
-    Gps_traits traits;
-    Gps_traits::Make_x_monotone_2 make_x_monotone = traits.make_x_monotone_2_object();
-    Gps_traits::Curve_2 curve(circle);
+    Traits::Curve_2 curve(circle);
     std::vector<CGAL::Object> objects;
     make_x_monotone(curve, std::back_inserter(objects));
     CGAL_assertion(objects.size() == 2);
 
-    // Construct the polygon
-    Inset_polygon pgn;
-    Gps_traits::X_monotone_curve_2 arc;
-    std::vector<CGAL::Object>::iterator iter;
-    for (iter = objects.begin(); iter != objects.end(); ++iter) {
-        CGAL::assign(arc, *iter);
-        pgn.push_back(arc);
+    Traits::X_monotone_curve_2 arc;
+    Polygon result;
+    for (const CGAL::Object& obj : objects) {
+        CGAL::assign(arc, obj);
+        result.push_back(arc);
     }
 
-    return pgn;
+    return result;
 }
 
-
-bool check_inside(const Point& point, const Polygon& polygon)
+bool check_inside(const Input_point& point, const Input_polygon& polygon)
 {
     CGAL::Bounded_side bounded_side = CGAL::bounded_side_2(polygon.vertices_begin(), polygon.vertices_end(), point, Kernel());
     return (bounded_side != CGAL::ON_UNBOUNDED_SIDE);
 }
 
-bool check_inside(const Point& point, const std::vector<Point>& polyline)
+bool check_inside(const Input_point& point, const Polygon& polygon)
 {
-    CGAL::Bounded_side bounded_side = CGAL::bounded_side_2(polyline.begin(), polyline.end(), point, Kernel());
-    return (bounded_side != CGAL::ON_UNBOUNDED_SIDE);
+    const General_polygon_set gps(polygon);
+    const Arrangement& arr = gps.arrangement();
+
+    typedef CGAL::Arr_naive_point_location<Arrangement> Point_location;
+    typedef Point_location::Point_2                     Point_to_locate;
+    typedef Point_location::Result                      Point_location_result;
+    typedef Point_location_result::Type                 Point_location_result_type;
+
+    Point_location pl(arr);
+    const Point_to_locate ptl(point.x(), point.y());
+
+    Point_location_result_type location = pl.locate(ptl);
+
+    typedef Point_location_result::Vertex_const_handle   Vertex_const_handle;
+    typedef Point_location_result::Halfedge_const_handle Halfedge_const_handle;
+    typedef Point_location_result::Face_const_handle     Face_const_handle;
+
+    const Vertex_const_handle *v;
+    const Halfedge_const_handle *e;
+    const Face_const_handle *f;
+
+    if ((f = boost::get<Face_const_handle>(&location))) {
+        return (*f)->has_outer_ccb();
+    }
+    return static_cast<bool>(boost::get<Halfedge_const_handle>(&location) || boost::get<Vertex_const_handle>(&location));
 }
 
 
-void generate_free_space(const Polygon& W, std::vector<Inset_polygon>& F)
+void generate_free_space(const Input_polygon& W, std::vector<Polygon>& F)
 {
+    Kernel::FT r(1);
+    double eps = 0.001; //std::numeric_limits<double>::epsilon();
+
     F.clear();
-    CGAL::inset_polygon_2(W, 1, ConicTraits(), std::back_inserter(F));
-}
+    CGAL::approximated_inset_2(W, r, eps, std::back_inserter(F));
 
-
-int remove_start_target_configs(std::vector<Inset_polygon>& F,
-                                const std::vector<Point>& S,
-                                const std::vector<Point>& T,
-                                std::vector<Inset_polygon_with_holes>& F_star)
-{
-    for (Inset_polygon& f : F) {
-        Inset_polygon_with_holes pgn;
-
-        std::vector<Point> polyline;
-        polyline_approximation(f, polyline);
-
-        int s_i = 0;
-        for (const Point& s : S) {
-            if (check_inside(s, polyline)) {
-                pgn.add_hole(D<2>(s));
-                s_i++;
-            }
+    for (Polygon& f : F) {
+        if (f.orientation() != CGAL::Orientation::COUNTERCLOCKWISE) {
+            f.reverse_orientation();
         }
-
-        int t_i = 0;
-        for (const Point& t : T) {
-            if (check_inside(t, polyline)) {
-                pgn.add_hole(D<2>(t));
-                t_i++;
-            }
-        }
-
-        // Ensure every free space part has equal no. of start and target configurations
-        if (s_i != t_i) {
-            return -1;
-        }
-
-        std::cout << f.orientation() << std::endl;
-        f.reverse_orientation();
-        std::cout << f.orientation() << std::endl;
-
-        CGAL::intersection(f, pgn, std::back_inserter(F_star));
+        CGAL_assertion(f.orientation() == CGAL::Orientation::COUNTERCLOCKWISE);
     }
 
-    return 0;
 }
 
-int generate_motion_graph(const Inset_polygon_with_holes& F_i,
-                          const std::vector<Point>& S,
-                          const std::vector<Point>& T,
-                          boost::undirected_graph<>& G_i)
-{
-    const Inset_polygon& ccb = F_i.outer_boundary();
-    std::vector<Point> polyline;
-    polyline_approximation(ccb, polyline);
 
-    for (const Point& s : S) {
-        if (check_inside(s, polyline)) {
-            // s \in H_i
-        } else {
-            // if |s - polyline| < 2, then s \in B_i
+General_polygon_set remove_start_target_configs(const Polygon& F,
+                                                const std::vector<Input_point>& S,
+                                                const std::vector<Input_point>& T)
+{
+    General_polygon_set gps(F);
+
+    int s_i = 0;
+    for (const Input_point& s : S) {
+        if (check_inside(s, F)) {
+            gps.difference(D<2>(s));
+            s_i++;
         }
     }
 
-    return 0;
+    int t_i = 0;
+    for (const Input_point& t : T) {
+        if (check_inside(t, F)) {
+            gps.difference(D<2>(t));
+            t_i++;
+        }
+    }
+
+    // Ensure every free space part has equal no. of start and target configurations
+    CGAL_assertion(s_i == t_i);
+
+    return gps;
 }
+
+//int generate_motion_graph(const Polygon_with_holes& F_i,
+//                          const std::vector<Point>& S,
+//                          const std::vector<Point>& T,
+//                          boost::undirected_graph<>& G_i)
+//{
+//    const Polygon& ccb = F_i.outer_boundary();
+//
+//    for (const Point& s : S) {
+//        if (check_inside(s, ccb)) {
+//            // s \in H_i
+//        } else {
+//            // if |s - polyline| < 2, then s \in B_i
+//        }
+//    }
+//
+//    return 0;
+//}

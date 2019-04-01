@@ -19,20 +19,18 @@ class MainWindow : public QMainWindow, public Ui::MainWindow {
 Q_OBJECT
 
 private:
-    const double scale = 100;
-
     QGraphicsScene scene;
     QActionGroup *iGroup;
 
-    Polygon workspace;
+    Input_polygon workspace;
     WorkspaceGraphicsItem *wg;
     CGAL::Qt::GraphicsViewPolylineInput<Kernel> *wi;
 
-    std::vector<Point> startConfigs, targetConfigs;
+    std::vector<Input_point> startConfigs, targetConfigs;
     ConfigurationGraphicsItem *sg, *tg;
     CGAL::Qt::GraphicsViewPointInput<Kernel> *si, *ti;
 
-    std::vector<Inset_polygon_with_holes> free_space;
+    std::vector<std::pair<Polygon, General_polygon_set>> free_space;
     FreeSpaceGraphicsItem *fsg;
 
     void clear_UI();

@@ -9,7 +9,7 @@
 class WorkspaceGraphicsItem : public CGAL::Qt::GraphicsItem {
 
 public:
-    inline WorkspaceGraphicsItem(const Polygon& pgn) : pgn(pgn)
+    inline WorkspaceGraphicsItem(const Input_polygon& pgn) : pgn(pgn)
     {
         this->setVerticesPen(QPen(Qt::black, 1.));
         this->setEdgesPen(QPen(Qt::black, 1.));
@@ -62,7 +62,7 @@ public:
     }
 
 protected:
-    const Polygon& pgn;
+    const Input_polygon& pgn;
 
     QPen vPen, ePen;
 };
