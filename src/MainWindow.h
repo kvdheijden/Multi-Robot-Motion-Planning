@@ -26,7 +26,7 @@ private:
     WorkspaceGraphicsItem *wg;
     CGAL::Qt::GraphicsViewPolylineInput<Kernel> *wi;
 
-    std::vector<Input_point> startConfigs, targetConfigs;
+    std::vector<Point> startConfigs, targetConfigs;
     ConfigurationGraphicsItem *sg, *tg;
     CGAL::Qt::GraphicsViewPointInput<Kernel> *si, *ti;
 

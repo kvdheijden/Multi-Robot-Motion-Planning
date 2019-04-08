@@ -100,7 +100,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::processInputWorkspace(CGAL::Object object)
 {
-    std::list<Input_point> points;
+    std::list<Point> points;
     if (CGAL::assign(points, object)) {
         if (points.size() <= 2) {
             return;
@@ -127,7 +127,7 @@ void MainWindow::processInputWorkspace(CGAL::Object object)
 
 void MainWindow::processInputStartConfigs(CGAL::Object object)
 {
-    Input_point point;
+    Point point;
     if (CGAL::assign(point, object)) {
         if (!check_inside(point, workspace)) {
             // Error
@@ -143,7 +143,7 @@ void MainWindow::processInputStartConfigs(CGAL::Object object)
 
 void MainWindow::processInputTargetConfigs(CGAL::Object object)
 {
-    Input_point point;
+    Point point;
     if (CGAL::assign(point, object)) {
         if (!check_inside(point, workspace)) {
             // Error
@@ -232,14 +232,18 @@ void MainWindow::on_actionGenerateFreeSpace_triggered()
     generate_free_space(workspace, F);
     for (const Polygon& f : F) {
         General_polygon_set gps = remove_start_target_configs(f, startConfigs, targetConfigs);
-        free_space.push_back(std::make_pair(f, gps));
+        free_space.emplace_back(std::make_pair(f, gps));
     }
     emit(changed());
 }
 
 void MainWindow::on_actionGenerateMotionGraph_triggered()
 {
-
+    for (const std::pair<Polygon, General_polygon_set>& f : free_space) {
+        std::vector<Polygon_with_holes> F_star;
+        f.second.polygons_with_holes(std::back_inserter(F_star));
+        boost::undirected_graph<> G_i = generate_motion_graph(f.first, F_star, startConfigs, targetConfigs);
+    }
 }
 
 void MainWindow::on_actionRecenter_triggered()

@@ -10,6 +10,8 @@
 
 #include "cgal_types.h"
 
+#include <CGAL/CORE/Expr.h>
+
 class FreeSpaceGraphicsItem : public CGAL::Qt::GraphicsItem {
 private:
     static constexpr int POLYLINE_APPROXIMATION = 100;
@@ -69,17 +71,37 @@ public:
 
     inline void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
     {
-        CGAL::Qt::PainterOstream<Kernel> painterOstream(painter, boundingRect());
+        CGAL::Qt::PainterOstream<CircularKernel> painterOstreamCK(painter, boundingRect());
+        CGAL::Qt::PainterOstream<Kernel> painterOstreamK(painter, boundingRect());
 
         painter->setPen(this->curvesPen());
         for (const auto& f : F) {
-            std::vector<Polygon_with_holes> polygons_with_holes;
-            f.second.polygons_with_holes(std::back_inserter(polygons_with_holes));
+            for (auto iter = f.first.curves_begin(); iter != f.first.curves_end(); ++iter) {
+                const Polygon::X_monotone_curve_2& curve = *iter;
+                const Polygon::Point_2& source = curve.source();
+                CORE::Expr sourceX = source.x().a0() + source.x().a1() * sqrt(source.x().root());
+                CORE::Expr sourceY = source.y().a0() + source.y().a1() * sqrt(source.y().root());
 
-            for (const Polygon_with_holes& polygon_with_holes : polygons_with_holes) {
-                paintPolygon(painterOstream, polygon_with_holes.outer_boundary());
-                for (auto iter = polygon_with_holes.holes_begin(); iter != polygon_with_holes.holes_end(); ++iter) {
-                    paintPolygon(painterOstream, *iter);
+                const Polygon::Point_2& target = curve.target();
+                CORE::Expr targetX = target.x().a0() + target.x().a1() * sqrt(target.x().root());
+                CORE::Expr targetY = target.y().a0() + target.y().a1() * sqrt(target.y().root());
+
+                if (curve.is_linear()) {
+                    Point start(sourceX, sourceY);
+                    Point end(targetX, targetY);
+                    painterOstreamK << Segment(end, start);
+                } else if (curve.is_circular()) {
+                    const Circle& supporting_circle = curve.supporting_circle();
+
+                    CircularKernel::FT squared_radius(supporting_circle.squared_radius());
+                    CircularKernel::Point_2 center(supporting_circle.center().x(), supporting_circle.center().y());
+
+                    CircularKernel::Circle_2 circle(center, squared_radius);
+                    CircularKernel::Point_2 start(sourceX, sourceY);
+                    CircularKernel::Point_2 end(targetX, targetY);
+
+                    CircularKernel::Circular_arc_2 carc(circle, end, start);
+                    painterOstreamCK << carc;
                 }
             }
         }
@@ -88,19 +110,6 @@ public:
 protected:
     const std::vector<std::pair<Polygon, General_polygon_set>>& F;
     QPen cPen;
-
-    inline void paintPolygon(CGAL::Qt::PainterOstream<Kernel>& painterOstream, const Polygon& f)
-    {
-        for (auto iter = f.curves_begin(); iter != f.curves_end(); ++iter) {
-            const Polygon::X_monotone_curve_2& curve = *iter;
-
-            if (curve.is_linear()) {
-                painterOstream << curve.supporting_line();
-            } else if (curve.is_circular()) {
-                painterOstream << curve.supporting_circle();
-            }
-        }
-    }
 };
 
 

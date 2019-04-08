@@ -10,7 +10,7 @@
 class ConfigurationGraphicsItem : public CGAL::Qt::GraphicsItem {
 
 public:
-    inline ConfigurationGraphicsItem(const std::vector<Input_point>& configs) : configs(configs)
+    inline ConfigurationGraphicsItem(const std::vector<Point>& configs) : configs(configs)
     {
         this->setDiscPen(QPen(Qt::red, 1.));
         this->setDiscBrush(QBrush(Qt::red));
@@ -53,14 +53,14 @@ public:
 
         painter->setPen(this->discPen());
         painter->setBrush(this->discBrush());
-        for (const Input_point& config : configs) {
+        for (const Point& config : configs) {
             Circle unit_disc(config, 1.);
             painterOstream << unit_disc;
         }
     }
 
 protected:
-    const std::vector<Input_point>& configs;
+    const std::vector<Point>& configs;
     QPen dPen;
     QBrush dBrush;
 };
