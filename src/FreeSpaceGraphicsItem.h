@@ -79,12 +79,12 @@ public:
             for (auto iter = f.first.curves_begin(); iter != f.first.curves_end(); ++iter) {
                 const Polygon::X_monotone_curve_2& curve = *iter;
                 const Polygon::Point_2& source = curve.source();
-                CORE::Expr sourceX = source.x().a0() + source.x().a1() * sqrt(source.x().root());
-                CORE::Expr sourceY = source.y().a0() + source.y().a1() * sqrt(source.y().root());
+                CORE::Expr sourceX = source.x().a0() + source.x().a1() * CGAL::sqrt(source.x().root());
+                CORE::Expr sourceY = source.y().a0() + source.y().a1() * CGAL::sqrt(source.y().root());
 
                 const Polygon::Point_2& target = curve.target();
-                CORE::Expr targetX = target.x().a0() + target.x().a1() * sqrt(target.x().root());
-                CORE::Expr targetY = target.y().a0() + target.y().a1() * sqrt(target.y().root());
+                CORE::Expr targetX = target.x().a0() + target.x().a1() * CGAL::sqrt(target.x().root());
+                CORE::Expr targetY = target.y().a0() + target.y().a1() * CGAL::sqrt(target.y().root());
 
                 if (curve.is_linear()) {
                     Point start(sourceX, sourceY);

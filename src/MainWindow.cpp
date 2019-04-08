@@ -3,6 +3,7 @@
 #include <QMessageBox>
 #include <CGAL/assertions.h>
 
+#include "VertexProperty.h"
 #include "mrmp.h"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
@@ -242,7 +243,8 @@ void MainWindow::on_actionGenerateMotionGraph_triggered()
     for (const std::pair<Polygon, General_polygon_set>& f : free_space) {
         std::vector<Polygon_with_holes> F_star;
         f.second.polygons_with_holes(std::back_inserter(F_star));
-        boost::undirected_graph<> G_i = generate_motion_graph(f.first, F_star, startConfigs, targetConfigs);
+        boost::undirected_graph<VertexProperty> G_i;
+        generate_motion_graph(f.first, F_star, startConfigs, targetConfigs, G_i);
     }
 }
 
