@@ -53,11 +53,11 @@ bool check_inside(const Point &point, const Polygon &polygon) {
     const Halfedge_const_handle *e;
     const Face_const_handle *f;
 
-    if ((f = boost::get < Face_const_handle > (&location))) {
+    if ((f = boost::get<Face_const_handle>(&location))) {
         return (*f)->has_outer_ccb();
     }
-    return static_cast<bool>(boost::get < Halfedge_const_handle > (&location) ||
-                             boost::get < Vertex_const_handle > (&location));
+    return static_cast<bool>(boost::get<Halfedge_const_handle>(&location) ||
+                             boost::get<Vertex_const_handle>(&location));
 }
 
 
@@ -142,7 +142,7 @@ public:
         for (auto iter = cdP.curves_begin(); iter != cdP.curves_end(); ++iter) {
             std::vector<CGAL::Object> objects;
             iter->intersect(curve, std::back_inserter(objects));
-            for (const CGAL::Object& object : objects) {
+            for (const CGAL::Object &object : objects) {
                 std::pair<Polygon::Point_2, unsigned int> p_tmp;
 //                Polygon::X_monotone_curve_2 c_tmp;
 
@@ -161,7 +161,7 @@ public:
         for (auto iter = cdQ.curves_begin(); iter != cdQ.curves_end(); ++iter) {
             std::vector<CGAL::Object> objects;
             iter->intersect(curve, std::back_inserter(objects));
-            for (const CGAL::Object& object : objects) {
+            for (const CGAL::Object &object : objects) {
                 std::pair<Polygon::Point_2, unsigned int> p_tmp;
 //                Polygon::X_monotone_curve_2 c_tmp;
 
@@ -176,8 +176,8 @@ public:
         }
         CGAL_assertion(!intersectQ.empty());
 
-        const Polygon::Point_2& pp = intersectP[0];
-        const Polygon::Point_2& qq = intersectQ[0];
+        const Polygon::Point_2 &pp = intersectP[0];
+        const Polygon::Point_2 &qq = intersectQ[0];
 
         if (curve.is_circular()) {
             return orientation(source, pp, qq) == CGAL::Orientation::RIGHT_TURN;
@@ -186,26 +186,24 @@ public:
     }
 
 private:
-    const Polygon::X_monotone_curve_2& curve;
-    const Polygon::Point_2& source;
+    const Polygon::X_monotone_curve_2 &curve;
+    const Polygon::Point_2 &source;
 
-    static inline Point get_point(const Polygon::Point_2& p)
-    {
+    static inline Point get_point(const Polygon::Point_2 &p) {
         CORE::Expr x = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
         CORE::Expr y = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
         return Point(x, y);
     }
 
-    static inline CGAL::Orientation orientation(const Polygon::Point_2& p, const Polygon::Point_2& q, const Polygon::Point_2& r)
-    {
+    static inline CGAL::Orientation
+    orientation(const Polygon::Point_2 &p, const Polygon::Point_2 &q, const Polygon::Point_2 &r) {
         Point pp = get_point(p);
         Point qq = get_point(q);
         Point rr = get_point(r);
         return CGAL::orientation(pp, qq, rr);
     }
 
-    static inline Kernel::FT squared_distance(const Polygon::Point_2& p, const Polygon::Point_2& q)
-    {
+    static inline Kernel::FT squared_distance(const Polygon::Point_2 &p, const Polygon::Point_2 &q) {
         Point pp = get_point(p);
         Point qq = get_point(q);
         return CGAL::squared_distance(pp, qq);
@@ -216,24 +214,22 @@ void generate_motion_graph(const Polygon &F_i,
                            const std::vector<Polygon_with_holes> &F_star,
                            const std::vector<Point> &S,
                            const std::vector<Point> &T,
-                           boost::undirected_graph<VertexProperty> &G_i) {
-    typedef boost::undirected_graph<VertexProperty>::vertex_descriptor Vdesc;
-
+                           MotionGraph &G_i) {
     CGAL_precondition(S.size() == T.size());
 
-    std::vector<Vdesc> source_descriptors;
-    std::vector<Vdesc> target_descriptors;
+    std::vector<MotionGraphVertex_t> source_descriptors;
+    std::vector<MotionGraphVertex_t> target_descriptors;
 
     G_i.clear();
     for (int i = 0; i < S.size(); i++) {
-        source_descriptors.push_back(G_i.add_vertex(VertexProperty(true, i)));
-        target_descriptors.push_back(G_i.add_vertex(VertexProperty(false, i)));
+        source_descriptors.push_back(G_i.add_vertex(Vertex(true, i)));
+        target_descriptors.push_back(G_i.add_vertex(Vertex(false, i)));
     }
 
 //    const Polygon::Point_2 start = F_i.curves_begin()->source();
 //    Polygon::Point_2 curr = start;
-//    Vdesc *u = nullptr;
-//    Vdesc *first = nullptr;
+//    MotionGraphVertex_t *u = nullptr;
+//    MotionGraphVertex_t *first = nullptr;
 //
 //    do {
 //        // Retrieve the next curve
@@ -261,7 +257,7 @@ void generate_motion_graph(const Polygon &F_i,
 //
 //        // Add edges between vertices in G_i
 //        for (const Point &p : B_i) {
-//            Vdesc *v = nullptr;
+//            MotionGraphVertex_t *v = nullptr;
 //            for (int i = 0; i < S.size(); i++) {
 //                if (p == S[i]) {
 //                    v = &source_descriptors[i];
@@ -292,12 +288,12 @@ void generate_motion_graph(const Polygon &F_i,
 //    }
 
     // Add edges between vertices in H_i
-    for (const Polygon_with_holes& F_star_i : F_star) {
-        std::vector<Vdesc> B_i, H_i;
+    for (const Polygon_with_holes &F_star_i : F_star) {
+        std::vector<MotionGraphVertex_t> B_i, H_i;
 
         for (int i = 0; i < S.size(); i++) {
             if (check_inside(S[i], F_i)) {
-                const Polygon& boundary = F_star_i.outer_boundary();
+                const Polygon &boundary = F_star_i.outer_boundary();
                 if (check_inside(S[i], boundary)) {
                     H_i.push_back(source_descriptors[i]);
                 } else if (do_intersect(D<2>(S[i]), boundary)) {
@@ -311,8 +307,8 @@ void generate_motion_graph(const Polygon &F_i,
             }
         }
 
-        for (const Vdesc& b : B_i) {
-            for (const Vdesc& h : H_i) {
+        for (const MotionGraphVertex_t &b : B_i) {
+            for (const MotionGraphVertex_t &h : H_i) {
                 G_i.add_edge(b, h);
             }
         }

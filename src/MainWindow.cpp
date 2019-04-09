@@ -216,15 +216,15 @@ void MainWindow::on_actionGenerateFreeSpace_triggered() {
 
 void MainWindow::on_actionGenerateMotionGraph_triggered() {
     G.clear();
-    boost::undirected_graph<VertexProperty> G_i;
     for (const std::pair<Polygon, General_polygon_set> &f : free_space) {
+        InterferenceForestVertex_t i = G.add_vertex();
         std::vector<Polygon_with_holes> F_star;
         f.second.polygons_with_holes(std::back_inserter(F_star));
-        generate_motion_graph(f.first, F_star, startConfigs, targetConfigs, G_i);
+        generate_motion_graph(f.first, F_star, startConfigs, targetConfigs, G[i]);
+        std::cerr << "Graph G_i has " <<
+                  G[i].num_vertices() << " vertices and " <<
+                  G[i].num_edges() << " edges." << std::endl;
     }
-    std::cerr << "Graph G_i has " <<
-              G_i.num_vertices() << " vertices and " <<
-              G_i.num_edges() << " edges." << std::endl;
 }
 
 void MainWindow::on_actionRecenter_triggered() {

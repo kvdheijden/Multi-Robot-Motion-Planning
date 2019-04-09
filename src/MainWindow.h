@@ -11,13 +11,10 @@
 #include <CGAL/Qt/GraphicsViewPointInput.h>
 
 #include "cgal_types.h"
+#include "boost_types.h"
 #include "WorkspaceGraphicsItem.h"
 #include "ConfigurationGraphicsItem.h"
 #include "FreeSpaceGraphicsItem.h"
-
-#include "VertexProperty.h"
-
-#include <boost/graph/undirected_graph.hpp>
 
 class MainWindow : public QMainWindow, private Ui::MainWindow {
 Q_OBJECT
@@ -37,7 +34,7 @@ private:
     std::vector<std::pair<Polygon, General_polygon_set>> free_space;
     FreeSpaceGraphicsItem *fsg;
 
-    std::vector<boost::undirected_graph<VertexProperty>> G;
+    InterferenceForest G;
 
     void clear_UI();
     void clear_objects();

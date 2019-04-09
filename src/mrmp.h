@@ -2,9 +2,7 @@
 #define MULTI_ROBOT_MOTION_PLANNING_MRMP_H
 
 #include "cgal_types.h"
-#include "VertexProperty.h"
-
-#include <boost/graph/undirected_graph.hpp>
+#include "boost_types.h"
 
 bool check_inside(const Point &point, const Input_polygon &polygon);
 
@@ -18,7 +16,7 @@ void generate_motion_graph(const Polygon &F_i,
                            const std::vector<Polygon_with_holes> &F_star,
                            const std::vector<Point> &S,
                            const std::vector<Point> &T,
-                           boost::undirected_graph<VertexProperty> &G_i);
+                           MotionGraph &G_i);
 
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_MRMP_H

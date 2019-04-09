@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 project("Multi-Robot Motion Planning" LANGUAGES CXX VERSION 1.0.0.0)
 set(CMAKE_AUTOMOC ON)
 
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Og")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -Og")
 
 # CGAL and its components
 find_package(CGAL COMPONENTS Core Qt5 REQUIRED)
