@@ -3,11 +3,9 @@
 #include <QMessageBox>
 #include <CGAL/assertions.h>
 
-#include "VertexProperty.h"
 #include "mrmp.h"
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
-{
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow() {
     setupUi(this);
 
     // Setup GraphicsItems
@@ -85,8 +83,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow()
     this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
 }
 
-MainWindow::~MainWindow()
-{
+MainWindow::~MainWindow() {
     delete wi;
     delete si;
     delete ti;
@@ -99,8 +96,7 @@ MainWindow::~MainWindow()
     delete iGroup;
 }
 
-void MainWindow::processInputWorkspace(CGAL::Object object)
-{
+void MainWindow::processInputWorkspace(CGAL::Object object) {
     std::list<Point> points;
     if (CGAL::assign(points, object)) {
         if (points.size() <= 2) {
@@ -114,9 +110,7 @@ void MainWindow::processInputWorkspace(CGAL::Object object)
         Input_polygon p(points.begin(), points.end());
         if (!p.is_simple()) {
             // Error
-            QMessageBox messageBox;
-            messageBox.critical(nullptr, "Invalid Polygon", "The workspace polygon must be simple");
-            messageBox.setFixedSize(500, 200);
+            QMessageBox::critical(nullptr, "Invalid Polygon", "The workspace polygon must be simple");
             return;
         }
 
@@ -126,15 +120,12 @@ void MainWindow::processInputWorkspace(CGAL::Object object)
     emit(changed());
 }
 
-void MainWindow::processInputStartConfigs(CGAL::Object object)
-{
+void MainWindow::processInputStartConfigs(CGAL::Object object) {
     Point point;
     if (CGAL::assign(point, object)) {
         if (!check_inside(point, workspace)) {
             // Error
-            QMessageBox messageBox;
-            messageBox.critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
-            messageBox.setFixedSize(500, 200);
+            QMessageBox::critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
             return;
         }
         startConfigs.push_back(point);
@@ -142,15 +133,12 @@ void MainWindow::processInputStartConfigs(CGAL::Object object)
     emit(changed());
 }
 
-void MainWindow::processInputTargetConfigs(CGAL::Object object)
-{
+void MainWindow::processInputTargetConfigs(CGAL::Object object) {
     Point point;
     if (CGAL::assign(point, object)) {
         if (!check_inside(point, workspace)) {
             // Error
-            QMessageBox messageBox;
-            messageBox.critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
-            messageBox.setFixedSize(500, 200);
+            QMessageBox::critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
             return;
         }
         targetConfigs.push_back(point);
@@ -158,49 +146,40 @@ void MainWindow::processInputTargetConfigs(CGAL::Object object)
     emit(changed());
 }
 
-void MainWindow::on_actionNew_triggered()
-{
+void MainWindow::on_actionNew_triggered() {
     clear_objects();
     emit(changed());
 }
 
-void MainWindow::on_actionOpen_triggered()
-{
+void MainWindow::on_actionOpen_triggered() {
 
 }
 
-void MainWindow::on_actionImport_triggered()
-{
+void MainWindow::on_actionImport_triggered() {
 
 }
 
-void MainWindow::on_actionExport_triggered()
-{
+void MainWindow::on_actionExport_triggered() {
 
 }
 
-void MainWindow::on_actionExit_triggered()
-{
+void MainWindow::on_actionExit_triggered() {
     this->close();
 }
 
-void MainWindow::on_actionUndo_triggered()
-{
+void MainWindow::on_actionUndo_triggered() {
 
 }
 
-void MainWindow::on_actionRedo_triggered()
-{
+void MainWindow::on_actionRedo_triggered() {
 
 }
 
-void MainWindow::on_actionInsertNone_toggled(bool checked)
-{
+void MainWindow::on_actionInsertNone_toggled(bool checked) {
 
 }
 
-void MainWindow::on_actionInsertWorkspace_toggled(bool checked)
-{
+void MainWindow::on_actionInsertWorkspace_toggled(bool checked) {
     if (checked) {
         scene.installEventFilter(wi);
     } else {
@@ -208,8 +187,7 @@ void MainWindow::on_actionInsertWorkspace_toggled(bool checked)
     }
 }
 
-void MainWindow::on_actionInsertStartConfigs_toggled(bool checked)
-{
+void MainWindow::on_actionInsertStartConfigs_toggled(bool checked) {
     if (checked) {
         scene.installEventFilter(si);
     } else {
@@ -217,8 +195,7 @@ void MainWindow::on_actionInsertStartConfigs_toggled(bool checked)
     }
 }
 
-void MainWindow::on_actionInsertTargetConfigs_toggled(bool checked)
-{
+void MainWindow::on_actionInsertTargetConfigs_toggled(bool checked) {
     if (checked) {
         scene.installEventFilter(ti);
     } else {
@@ -226,42 +203,41 @@ void MainWindow::on_actionInsertTargetConfigs_toggled(bool checked)
     }
 }
 
-void MainWindow::on_actionGenerateFreeSpace_triggered()
-{
+void MainWindow::on_actionGenerateFreeSpace_triggered() {
     free_space.clear();
     std::vector<Polygon> F;
     generate_free_space(workspace, F);
-    for (const Polygon& f : F) {
+    for (const Polygon &f : F) {
         General_polygon_set gps = remove_start_target_configs(f, startConfigs, targetConfigs);
         free_space.emplace_back(std::make_pair(f, gps));
     }
     emit(changed());
 }
 
-void MainWindow::on_actionGenerateMotionGraph_triggered()
-{
-    for (const std::pair<Polygon, General_polygon_set>& f : free_space) {
+void MainWindow::on_actionGenerateMotionGraph_triggered() {
+    G.clear();
+    boost::undirected_graph<VertexProperty> G_i;
+    for (const std::pair<Polygon, General_polygon_set> &f : free_space) {
         std::vector<Polygon_with_holes> F_star;
         f.second.polygons_with_holes(std::back_inserter(F_star));
-        boost::undirected_graph<VertexProperty> G_i;
         generate_motion_graph(f.first, F_star, startConfigs, targetConfigs, G_i);
     }
+    std::cerr << "Graph G_i has " <<
+              G_i.num_vertices() << " vertices and " <<
+              G_i.num_edges() << " edges." << std::endl;
 }
 
-void MainWindow::on_actionRecenter_triggered()
-{
+void MainWindow::on_actionRecenter_triggered() {
     QRectF bbox = wg->boundingRect();
     this->graphicsView->setSceneRect(bbox);
     this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
 }
 
-void MainWindow::clear_UI()
-{
+void MainWindow::clear_UI() {
     scene.clear();
 }
 
-void MainWindow::clear_objects()
-{
+void MainWindow::clear_objects() {
     // Clear data structures
     free_space.clear();
     workspace.clear();

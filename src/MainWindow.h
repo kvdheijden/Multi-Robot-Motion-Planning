@@ -15,7 +15,11 @@
 #include "ConfigurationGraphicsItem.h"
 #include "FreeSpaceGraphicsItem.h"
 
-class MainWindow : public QMainWindow, public Ui::MainWindow {
+#include "VertexProperty.h"
+
+#include <boost/graph/undirected_graph.hpp>
+
+class MainWindow : public QMainWindow, private Ui::MainWindow {
 Q_OBJECT
 
 private:
@@ -32,6 +36,8 @@ private:
 
     std::vector<std::pair<Polygon, General_polygon_set>> free_space;
     FreeSpaceGraphicsItem *fsg;
+
+    std::vector<boost::undirected_graph<VertexProperty>> G;
 
     void clear_UI();
     void clear_objects();

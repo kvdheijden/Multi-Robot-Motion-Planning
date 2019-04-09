@@ -230,98 +230,102 @@ void generate_motion_graph(const Polygon &F_i,
         target_descriptors.push_back(G_i.add_vertex(VertexProperty(false, i)));
     }
 
-    const Polygon::Point_2 start = F_i.curves_begin()->source();
-    Polygon::Point_2 curr = start;
-    Vdesc *u = nullptr;
-    Vdesc *first = nullptr;
+//    const Polygon::Point_2 start = F_i.curves_begin()->source();
+//    Polygon::Point_2 curr = start;
+//    Vdesc *u = nullptr;
+//    Vdesc *first = nullptr;
+//
+//    do {
+//        // Retrieve the next curve
+//        Polygon::Curve_const_iterator iter;
+//        for (iter = F_i.curves_begin(); iter != F_i.curves_end(); ++iter) {
+//            if (curr == iter->source()) {
+//                break;
+//            }
+//        }
+//        CGAL_assertion(iter != F_i.curves_end());
+//
+//        // Find all points in the boundary of F_i
+//        std::vector<Point> B_i;
+//        for (int i = 0; i < S.size(); i++) {
+//            if (check_inside(S[i], F_i) && do_intersect(D<2>(S[i]), *iter)) {
+//                B_i.emplace_back(S[i]);
+//            }
+//            if (check_inside(T[i], F_i) && do_intersect(D<2>(T[i]), *iter)) {
+//                B_i.emplace_back(T[i]);
+//            }
+//        }
+//
+//        // Order the points by intersection along the curve
+//        std::sort(B_i.begin(), B_i.end(), compare_along_segment(*iter));
+//
+//        // Add edges between vertices in G_i
+//        for (const Point &p : B_i) {
+//            Vdesc *v = nullptr;
+//            for (int i = 0; i < S.size(); i++) {
+//                if (p == S[i]) {
+//                    v = &source_descriptors[i];
+//                } else if (p == T[i]) {
+//                    v = &target_descriptors[i];
+//                }
+//            }
+//            CGAL_assertion(v != nullptr);
+//
+//            if (first == nullptr) {
+//                first = v;
+//            }
+//
+//            if (v != nullptr && u != nullptr && u != v) {
+//                G_i.add_edge(*u, *v);
+//            }
+//
+//            u = v;
+//        }
+//
+//        curr = iter->target();
+//    } while (curr != start);
+//
+//    // Add the edge completing the boundary
+//    CGAL_assertion((first == nullptr) == (u == nullptr));
+//    if (first != nullptr && u != nullptr)  {
+//        G_i.add_edge(*first, *u);
+//    }
 
-    do {
-        // Retrieve the next curve
-        Polygon::Curve_const_iterator iter;
-        for (iter = F_i.curves_begin(); iter != F_i.curves_end(); ++iter) {
-            if (curr == iter->source()) {
-                break;
-            }
-        }
-        CGAL_assertion(iter != F_i.curves_end());
+    // Add edges between vertices in H_i
+    for (const Polygon_with_holes& F_star_i : F_star) {
+        std::vector<Vdesc> B_i, H_i;
 
-        // Find all points in the boundary of F_i
-        std::vector<Point> B_i;
         for (int i = 0; i < S.size(); i++) {
-            if (check_inside(S[i], F_i) && do_intersect(D<2>(S[i]), *iter)) {
-                B_i.emplace_back(S[i]);
-            }
-            if (check_inside(T[i], F_i) && do_intersect(D<2>(T[i]), *iter)) {
-                B_i.emplace_back(T[i]);
-            }
-        }
-
-        // Order the points by intersection along the curve
-        std::sort(B_i.begin(), B_i.end(), compare_along_segment(*iter));
-
-        // Add edges between vertices in G_i
-        for (const Point &p : B_i) {
-            Vdesc *v = nullptr;
-            for (int i = 0; i < S.size(); i++) {
-                if (p == S[i]) {
-                    v = &source_descriptors[i];
-                } else if (p == T[i]) {
-                    v = &target_descriptors[i];
+            if (check_inside(S[i], F_i)) {
+                const Polygon& boundary = F_star_i.outer_boundary();
+                if (check_inside(S[i], boundary)) {
+                    H_i.push_back(source_descriptors[i]);
+                } else if (do_intersect(D<2>(S[i]), boundary)) {
+                    B_i.push_back(source_descriptors[i]);
+                }
+                if (check_inside(T[i], boundary)) {
+                    H_i.push_back(target_descriptors[i]);
+                } else if (do_intersect(D<2>(T[i]), boundary)) {
+                    B_i.push_back(target_descriptors[i]);
                 }
             }
-            CGAL_assertion(v != nullptr);
-
-            if (first == nullptr) {
-                first = v;
-            }
-
-            if (u != nullptr && u != v) {
-                G_i.add_edge(*u, *v);
-            }
-
-            u = v;
         }
 
-        curr = iter->target();
-    } while (curr != start);
+        for (const Vdesc& b : B_i) {
+            for (const Vdesc& h : H_i) {
+                G_i.add_edge(b, h);
+            }
+        }
 
-    // Add the edge completing the boundary
-    CGAL_assertion((first == nullptr) == (u == nullptr));
-    if (first != nullptr && u != nullptr)  {
-        G_i.add_edge(*first, *u);
+        for (int i = 0; i < B_i.size(); i++) {
+            for (int j = 0; j < i; j++) {
+                G_i.add_edge(B_i[i], B_i[j]);
+            }
+        }
+        for (int i = 0; i < H_i.size(); i++) {
+            for (int j = 0; j < i; j++) {
+                G_i.add_edge(H_i[i], H_i[j]);
+            }
+        }
     }
-
-//    for (int i = 0; i < S.size(); i++) {
-//        const Point& s = S[i];
-//        const Vdesc & s_desc = source_descriptors[i];
-//
-//        if (check_inside(s, F_i)) {
-//            Polygon collision_disc = D<2>(s);
-//
-//            if(do_intersect(F_i, collision_disc)) {
-//                // B_i
-//                std::cerr << "Start config in B_i" << std::endl;
-//            } else {
-//                // H_i
-//                std::cerr << "Start config in H_i" << std::endl;
-//            }
-//        }
-//    }
-//
-//    for (int i = 0; i < T.size(); i++) {
-//        const Point& t = T[i];
-//        const Vdesc & t_desc = target_descriptors[i];
-//
-//        if (check_inside(t, F_i)) {
-//            Polygon collision_disc = D<2>(t);
-//
-//            if(do_intersect(F_i, collision_disc)) {
-//                // B_i
-//                std::cerr << "Target config in B_i" << std::endl;
-//            } else {
-//                // H_i
-//                std::cerr << "Target config in H_i" << std::endl;
-//            }
-//        }
-//    }
 }
