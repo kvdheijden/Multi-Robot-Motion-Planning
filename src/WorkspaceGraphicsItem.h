@@ -8,63 +8,22 @@
 
 class WorkspaceGraphicsItem : public CGAL::Qt::GraphicsItem {
 
+private:
+    const Workspace &W;
+    QColor color;
+
 public:
-    inline WorkspaceGraphicsItem(const Input_polygon& pgn) : pgn(pgn)
-    {
-        this->setVerticesPen(QPen(Qt::black, 1.));
-        this->setEdgesPen(QPen(Qt::black, 1.));
-    }
+    explicit WorkspaceGraphicsItem(const Workspace &W);
 
-    inline void modelChanged()
-    {
-        update();
-    }
+    ~WorkspaceGraphicsItem() override;
 
-    inline QRectF boundingRect() const
-    {
-        CGAL::Bbox_2 bbox = pgn.bbox();
-        return {bbox.xmin(), bbox.ymin(), bbox.xmax() - bbox.xmin(), bbox.ymax() - bbox.ymin()};
-    }
+    void modelChanged() override;
 
-    void setVerticesPen(const QPen& pen)
-    {
-        this->vPen = pen;
-    }
+    QRectF boundingRect() const override;
 
-    void setEdgesPen(const QPen& pen)
-    {
-        this->ePen = pen;
-    }
+    void setColor(const QColor &c);
 
-    const QPen& verticesPen() const
-    {
-        return vPen;
-    }
-
-    const QPen& edgesPen() const
-    {
-        return ePen;
-    }
-
-    inline void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
-    {
-        CGAL::Qt::PainterOstream<Kernel> painterOstream(painter);
-
-        painter->setPen(this->verticesPen());
-        for (auto iter = pgn.vertices_begin(); iter != pgn.vertices_end(); ++iter) {
-            painterOstream << *iter;
-        }
-
-        painter->setPen(this->edgesPen());
-        for (auto iter = pgn.edges_begin(); iter != pgn.edges_end(); ++iter) {
-            painterOstream << *iter;
-        }
-    }
-
-protected:
-    const Input_polygon& pgn;
-
-    QPen vPen, ePen;
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 };
 
 

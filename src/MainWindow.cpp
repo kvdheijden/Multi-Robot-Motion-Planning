@@ -14,34 +14,20 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow() 
             this, SIGNAL(changed()),
             wg, SLOT(modelChanged())
     );
-    wg->setEdgesPen(QPen(Qt::black, .1));
-    wg->setVerticesPen(QPen(Qt::black, .1));
     scene.addItem(wg);
 
-    sg = new ConfigurationGraphicsItem(startConfigs);
+    cg = new ConfigurationSetGraphicsItem(configurations);
     QObject::connect(
             this, SIGNAL(changed()),
-            sg, SLOT(modelChanged())
+            cg, SLOT(modelChanged())
     );
-    sg->setDiscPen(QPen(Qt::green, .1));
-    sg->setDiscBrush(QBrush(Qt::green));
-    scene.addItem(sg);
-
-    tg = new ConfigurationGraphicsItem(targetConfigs);
-    QObject::connect(
-            this, SIGNAL(changed()),
-            tg, SLOT(modelChanged())
-    );
-    tg->setDiscPen(QPen(Qt::magenta, .1));
-    tg->setDiscBrush(QBrush(Qt::magenta));
-    scene.addItem(tg);
+    scene.addItem(cg);
 
     fsg = new FreeSpaceGraphicsItem(free_space);
     QObject::connect(
             this, SIGNAL(changed()),
             fsg, SLOT(modelChanged())
     );
-    fsg->setCurvesPen(QPen(Qt::blue, .1));
     scene.addItem(fsg);
 
     // Setup GraphicsViewInputs
@@ -89,33 +75,41 @@ MainWindow::~MainWindow() {
     delete ti;
 
     delete fsg;
+    delete cg;
     delete wg;
-    delete sg;
-    delete tg;
 
     delete iGroup;
 }
 
 void MainWindow::processInputWorkspace(CGAL::Object object) {
-    std::list<Point> points;
-    if (CGAL::assign(points, object)) {
-        if (points.size() <= 2) {
+    std::list<Point> polyline;
+    if (CGAL::assign(polyline, object)) {
+        if (polyline.size() <= 2) {
             return;
         }
 
+        // Clear all objects and the scene
         clear_objects();
 
-        CGAL_assertion(points.front() == points.back());
-        points.pop_front();
-        Input_polygon p(points.begin(), points.end());
-        if (!p.is_simple()) {
+        // Make sure this is a valid polyline
+        CGAL_assertion(polyline.front() == polyline.back());
+        polyline.pop_front();
+
+        // Create the workspace
+        Workspace W(polyline.begin(), polyline.end());
+
+        // Make sure the workspace is simple
+        if (!W.is_simple()) {
             // Error
             QMessageBox::critical(nullptr, "Invalid Polygon", "The workspace polygon must be simple");
             return;
         }
 
         // Copy to the workspace variable
-        workspace = p;
+        this->workspace = W;
+
+        // Generate the free space
+        generate_free_space(workspace, free_space);
     }
     emit(changed());
 }
@@ -123,12 +117,23 @@ void MainWindow::processInputWorkspace(CGAL::Object object) {
 void MainWindow::processInputStartConfigs(CGAL::Object object) {
     Point point;
     if (CGAL::assign(point, object)) {
-        if (!check_inside(point, workspace)) {
+
+        // Determine if point is inside free space
+        bool inside = false;
+        for (const Polygon& F : free_space) {
+            if (check_inside(point, F)) {
+                inside = true;
+                break;
+            }
+        }
+
+        if (!inside) {
             // Error
             QMessageBox::critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
             return;
         }
-        startConfigs.push_back(point);
+
+        configurations.addSourceConfiguration(point);
     }
     emit(changed());
 }
@@ -136,12 +141,23 @@ void MainWindow::processInputStartConfigs(CGAL::Object object) {
 void MainWindow::processInputTargetConfigs(CGAL::Object object) {
     Point point;
     if (CGAL::assign(point, object)) {
-        if (!check_inside(point, workspace)) {
+
+        // Determine if point is inside free space
+        bool inside = false;
+        for (const Polygon& F : free_space) {
+            if (check_inside(point, F)) {
+                inside = true;
+                break;
+            }
+        }
+
+        if (!inside) {
             // Error
             QMessageBox::critical(nullptr, "Invalid Point", "Start/Target configurations must be inside the workspace");
             return;
         }
-        targetConfigs.push_back(point);
+
+        configurations.addTargetConfiguration(point);
     }
     emit(changed());
 }
@@ -203,28 +219,58 @@ void MainWindow::on_actionInsertTargetConfigs_toggled(bool checked) {
     }
 }
 
-void MainWindow::on_actionGenerateFreeSpace_triggered() {
-    free_space.clear();
-    std::vector<Polygon> F;
-    generate_free_space(workspace, F);
-    for (const Polygon &f : F) {
-        General_polygon_set gps = remove_start_target_configs(f, startConfigs, targetConfigs);
-        free_space.emplace_back(std::make_pair(f, gps));
-    }
-    emit(changed());
-}
-
 void MainWindow::on_actionGenerateMotionGraph_triggered() {
     G.clear();
-    for (const std::pair<Polygon, General_polygon_set> &f : free_space) {
-        InterferenceForestVertex_t i = G.add_vertex();
-        std::vector<Polygon_with_holes> F_star;
-        f.second.polygons_with_holes(std::back_inserter(F_star));
-        generate_motion_graph(f.first, F_star, startConfigs, targetConfigs, G[i]);
+    for (const Polygon &F_i : free_space) {
+        // Create a Interference forest vertex
+        InterferenceForestVertexDescriptor i = G.add_vertex();
+        InterferenceForestVertex& v = G[i];
+        v.freeSpaceComponent = &F_i;
+
+        // Retrieve the motion graph from it
+        MotionGraph& G_i = v.motionGraph;
+
+        // Generate the motion graph
+        generate_motion_graph(F_i, configurations, G_i);
+
+#ifndef NDEBUG
         std::cerr << "Graph G_i has " <<
-                  G[i].num_vertices() << " vertices and " <<
-                  G[i].num_edges() << " edges." << std::endl;
+                  G_i.num_vertices() << " vertices and " <<
+                  G_i.num_edges() << " edges." << std::endl;
+#endif
     }
+
+    for (int i = 0; i < G.num_vertices(); i++) {
+        for (int j = 0; j < i; j++) {
+
+            const InterferenceForestVertexDescriptor v_i = boost::vertex(i, G);
+            const InterferenceForestVertexDescriptor v_j = boost::vertex(j, G);
+            const Polygon &G_i = *(G[v_i].freeSpaceComponent);
+            const Polygon &G_j = *(G[v_j].freeSpaceComponent);
+
+            for (const Configuration &c : configurations) {
+                if (check_inside(c.getPoint(), G_i) && do_intersect(D<2>(c.getPoint()), G_j)) {
+                    if (c.isStart()) {
+                        G.add_edge(v_i, v_j);
+                    } else {
+                        G.add_edge(v_j, v_i);
+                    }
+                }
+                if (check_inside(c.getPoint(), G_j) && do_intersect(D<2>(c.getPoint()), G_i)) {
+                    if (c.isStart()) {
+                        G.add_edge(v_j, v_i);
+                    } else {
+                        G.add_edge(v_i, v_j);
+                    }
+                }
+            }
+        }
+    }
+#ifndef NDEBUG
+    std::cerr << "Graph G has " <<
+              G.num_vertices() << " vertices and " <<
+              G.num_edges() << " edges." << std::endl;
+#endif
 }
 
 void MainWindow::on_actionRecenter_triggered() {
@@ -233,14 +279,10 @@ void MainWindow::on_actionRecenter_triggered() {
     this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
 }
 
-void MainWindow::clear_UI() {
-    scene.clear();
-}
-
 void MainWindow::clear_objects() {
     // Clear data structures
+    G.clear();
     free_space.clear();
     workspace.clear();
-    startConfigs.clear();
-    targetConfigs.clear();
+    configurations.clear();
 }

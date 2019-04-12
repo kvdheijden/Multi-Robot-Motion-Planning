@@ -11,10 +11,13 @@
 #include <CGAL/Qt/GraphicsViewPointInput.h>
 
 #include "cgal_types.h"
-#include "boost_types.h"
+
 #include "WorkspaceGraphicsItem.h"
-#include "ConfigurationGraphicsItem.h"
+#include "ConfigurationSet.h"
+#include "ConfigurationSetGraphicsItem.h"
+#include "FreeSpace.h"
 #include "FreeSpaceGraphicsItem.h"
+#include "InterferenceForest.h"
 
 class MainWindow : public QMainWindow, private Ui::MainWindow {
 Q_OBJECT
@@ -23,20 +26,19 @@ private:
     QGraphicsScene scene;
     QActionGroup *iGroup;
 
-    Input_polygon workspace;
+    Workspace workspace;
     WorkspaceGraphicsItem *wg;
     CGAL::Qt::GraphicsViewPolylineInput<Kernel> *wi;
 
-    std::vector<Point> startConfigs, targetConfigs;
-    ConfigurationGraphicsItem *sg, *tg;
+    ConfigurationSet configurations;
+    ConfigurationSetGraphicsItem *cg;
     CGAL::Qt::GraphicsViewPointInput<Kernel> *si, *ti;
 
-    std::vector<std::pair<Polygon, General_polygon_set>> free_space;
+    FreeSpace free_space;
     FreeSpaceGraphicsItem *fsg;
 
     InterferenceForest G;
 
-    void clear_UI();
     void clear_objects();
 
 public:
@@ -61,7 +63,6 @@ public slots:
     void on_actionInsertStartConfigs_toggled(bool checked);
     void on_actionInsertTargetConfigs_toggled(bool checked);
 
-    void on_actionGenerateFreeSpace_triggered();
     void on_actionGenerateMotionGraph_triggered();
 
     void on_actionRecenter_triggered();

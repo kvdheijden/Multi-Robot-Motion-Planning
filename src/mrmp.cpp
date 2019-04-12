@@ -3,30 +3,10 @@
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/approximated_offset_2.h>
 
-template<int n>
-static Polygon D(const Point &p) {
-    Circle circle(p, Kernel::FT(n * n));
-
-    Traits traits;
-    Traits::Make_x_monotone_2 make_x_monotone = traits.make_x_monotone_2_object();
-
-    Traits::Curve_2 curve(circle);
-    std::vector<CGAL::Object> objects;
-    make_x_monotone(curve, std::back_inserter(objects));
-    CGAL_assertion(objects.size() == 2);
-
-    Traits::X_monotone_curve_2 arc;
-    Polygon result;
-    for (const CGAL::Object &obj : objects) {
-        CGAL::assign(arc, obj);
-        result.push_back(arc);
-    }
-
-    return result;
-}
-
-bool check_inside(const Point &point, const Input_polygon &polygon) {
-    CGAL::Bounded_side bounded_side = CGAL::bounded_side_2(polygon.vertices_begin(), polygon.vertices_end(), point,
+bool check_inside(const Point &point, const Workspace &workspace) {
+    CGAL::Bounded_side bounded_side = CGAL::bounded_side_2(workspace.vertices_begin(),
+                                                           workspace.vertices_end(),
+                                                           point,
                                                            Kernel());
     return (bounded_side != CGAL::ON_UNBOUNDED_SIDE);
 }
@@ -35,7 +15,7 @@ bool check_inside(const Point &point, const Polygon &polygon) {
     const General_polygon_set gps(polygon);
     const Arrangement &arr = gps.arrangement();
 
-    typedef CGAL::Arr_naive_point_location<Arrangement> Point_location;
+    typedef CGAL::Arr_naive_point_location <Arrangement> Point_location;
     typedef Point_location::Point_2 Point_to_locate;
     typedef Point_location::Result Point_location_result;
     typedef Point_location_result::Type Point_location_result_type;
@@ -49,8 +29,6 @@ bool check_inside(const Point &point, const Polygon &polygon) {
     typedef Point_location_result::Halfedge_const_handle Halfedge_const_handle;
     typedef Point_location_result::Face_const_handle Face_const_handle;
 
-    const Vertex_const_handle *v;
-    const Halfedge_const_handle *e;
     const Face_const_handle *f;
 
     if ((f = boost::get<Face_const_handle>(&location))) {
@@ -61,12 +39,12 @@ bool check_inside(const Point &point, const Polygon &polygon) {
 }
 
 
-void generate_free_space(const Input_polygon &W, std::vector<Polygon> &F) {
+void generate_free_space(const Workspace &W, FreeSpace &F) {
     Kernel::FT r(1);
     double eps = 0.001; //std::numeric_limits<double>::epsilon();
 
     F.clear();
-    CGAL::approximated_inset_2(W, r, eps, std::back_inserter(F));
+    CGAL::approximated_inset_2(W, r, eps, std::back_inserter(F.container()));
 
     for (Polygon &f : F) {
         if (f.orientation() != CGAL::Orientation::COUNTERCLOCKWISE) {
@@ -77,24 +55,20 @@ void generate_free_space(const Input_polygon &W, std::vector<Polygon> &F) {
 }
 
 
-General_polygon_set remove_start_target_configs(const Polygon &F,
-                                                const std::vector<Point> &S,
-                                                const std::vector<Point> &T) {
+static General_polygon_set remove_start_target_configs(const Polygon &F,
+                                                const ConfigurationSet &U) {
     General_polygon_set gps(F);
 
-    int s_i = 0;
-    for (const Point &s : S) {
-        if (check_inside(s, F)) {
-            gps.difference(D<2>(s));
-            s_i++;
-        }
-    }
-
-    int t_i = 0;
-    for (const Point &t : T) {
-        if (check_inside(t, F)) {
-            gps.difference(D<2>(t));
-            t_i++;
+    int s_i = 0, t_i = 0;
+    for (const Configuration &u : U) {
+        const Point& p = u.getPoint();
+        if (check_inside(p, F)) {
+            gps.difference(D<2>(p));
+            if (u.isStart()) {
+                s_i++;
+            } else {
+                t_i++;
+            }
         }
     }
 
@@ -104,21 +78,7 @@ General_polygon_set remove_start_target_configs(const Polygon &F,
     return gps;
 }
 
-static bool do_intersect(const Polygon &pgn1, const Polygon &pgn2) {
-    for (auto iter1 = pgn1.curves_begin(); iter1 != pgn1.curves_end(); ++iter1) {
-        for (auto iter2 = pgn2.curves_begin(); iter2 != pgn2.curves_end(); ++iter2) {
-            std::list<CGAL::Object> objects;
-            auto result = iter1->intersect(*iter2, std::back_inserter(objects));
-
-            if (!objects.empty()) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
-
-static bool do_intersect(const Polygon &pgn1, const Polygon::X_monotone_curve_2 &curve) {
+bool do_intersect(const Polygon &pgn1, const Polygon::X_monotone_curve_2 &curve) {
     for (auto iter1 = pgn1.curves_begin(); iter1 != pgn1.curves_end(); ++iter1) {
         std::list<CGAL::Object> objects;
         auto result = iter1->intersect(curve, std::back_inserter(objects));
@@ -130,185 +90,48 @@ static bool do_intersect(const Polygon &pgn1, const Polygon::X_monotone_curve_2 
     return false;
 }
 
-class compare_along_segment {
-public:
-    explicit compare_along_segment(const Polygon::X_monotone_curve_2 &curve) : curve(curve), source(curve.source()) {}
-
-    bool operator()(const Point &p, const Point &q) {
-        Polygon cdP = D<2>(p);
-        Polygon cdQ = D<2>(q);
-
-        std::vector<Polygon::Point_2> intersectP;
-        for (auto iter = cdP.curves_begin(); iter != cdP.curves_end(); ++iter) {
-            std::vector<CGAL::Object> objects;
-            iter->intersect(curve, std::back_inserter(objects));
-            for (const CGAL::Object &object : objects) {
-                std::pair<Polygon::Point_2, unsigned int> p_tmp;
-//                Polygon::X_monotone_curve_2 c_tmp;
-
-                if (CGAL::assign(p_tmp, object)) {
-                    intersectP.push_back(p_tmp.first);
-//                } else if (CGAL::assign(c_tmp, object)) {
-//                    intersectP.push_back(c_tmp.source());
-                } else {
-                    std::cerr << "Invalid object" << std::endl;
-                }
-            }
+bool do_intersect(const Polygon &pgn1, const Polygon &pgn2) {
+    for (auto iter = pgn2.curves_begin(); iter != pgn2.curves_end(); ++iter) {
+        if (do_intersect(pgn1, *iter)) {
+            return true;
         }
-        CGAL_assertion(!intersectP.empty());
-
-        std::vector<Polygon::Point_2> intersectQ;
-        for (auto iter = cdQ.curves_begin(); iter != cdQ.curves_end(); ++iter) {
-            std::vector<CGAL::Object> objects;
-            iter->intersect(curve, std::back_inserter(objects));
-            for (const CGAL::Object &object : objects) {
-                std::pair<Polygon::Point_2, unsigned int> p_tmp;
-//                Polygon::X_monotone_curve_2 c_tmp;
-
-                if (CGAL::assign(p_tmp, object)) {
-                    intersectQ.push_back(p_tmp.first);
-//                } else if (CGAL::assign(c_tmp, object)) {
-//                    intersectQ.push_back(c_tmp.source());
-                } else {
-                    std::cerr << "Invalid object" << std::endl;
-                }
-            }
-        }
-        CGAL_assertion(!intersectQ.empty());
-
-        const Polygon::Point_2 &pp = intersectP[0];
-        const Polygon::Point_2 &qq = intersectQ[0];
-
-        if (curve.is_circular()) {
-            return orientation(source, pp, qq) == CGAL::Orientation::RIGHT_TURN;
-        }
-        return squared_distance(source, pp) < squared_distance(source, qq);
     }
-
-private:
-    const Polygon::X_monotone_curve_2 &curve;
-    const Polygon::Point_2 &source;
-
-    static inline Point get_point(const Polygon::Point_2 &p) {
-        CORE::Expr x = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
-        CORE::Expr y = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
-        return Point(x, y);
-    }
-
-    static inline CGAL::Orientation
-    orientation(const Polygon::Point_2 &p, const Polygon::Point_2 &q, const Polygon::Point_2 &r) {
-        Point pp = get_point(p);
-        Point qq = get_point(q);
-        Point rr = get_point(r);
-        return CGAL::orientation(pp, qq, rr);
-    }
-
-    static inline Kernel::FT squared_distance(const Polygon::Point_2 &p, const Polygon::Point_2 &q) {
-        Point pp = get_point(p);
-        Point qq = get_point(q);
-        return CGAL::squared_distance(pp, qq);
-    }
-};
+    return false;
+}
 
 void generate_motion_graph(const Polygon &F_i,
-                           const std::vector<Polygon_with_holes> &F_star,
-                           const std::vector<Point> &S,
-                           const std::vector<Point> &T,
+                           const ConfigurationSet &U,
                            MotionGraph &G_i) {
-    CGAL_precondition(S.size() == T.size());
-
-    std::vector<MotionGraphVertex_t> source_descriptors;
-    std::vector<MotionGraphVertex_t> target_descriptors;
-
     G_i.clear();
-    for (int i = 0; i < S.size(); i++) {
-        source_descriptors.push_back(G_i.add_vertex(Vertex(true, i)));
-        target_descriptors.push_back(G_i.add_vertex(Vertex(false, i)));
+
+    for (const Configuration& u : U) {
+        if (check_inside(u.getPoint(), F_i)) {
+            G_i.add_vertex(u);
+        }
     }
 
-//    const Polygon::Point_2 start = F_i.curves_begin()->source();
-//    Polygon::Point_2 curr = start;
-//    MotionGraphVertex_t *u = nullptr;
-//    MotionGraphVertex_t *first = nullptr;
-//
-//    do {
-//        // Retrieve the next curve
-//        Polygon::Curve_const_iterator iter;
-//        for (iter = F_i.curves_begin(); iter != F_i.curves_end(); ++iter) {
-//            if (curr == iter->source()) {
-//                break;
-//            }
-//        }
-//        CGAL_assertion(iter != F_i.curves_end());
-//
-//        // Find all points in the boundary of F_i
-//        std::vector<Point> B_i;
-//        for (int i = 0; i < S.size(); i++) {
-//            if (check_inside(S[i], F_i) && do_intersect(D<2>(S[i]), *iter)) {
-//                B_i.emplace_back(S[i]);
-//            }
-//            if (check_inside(T[i], F_i) && do_intersect(D<2>(T[i]), *iter)) {
-//                B_i.emplace_back(T[i]);
-//            }
-//        }
-//
-//        // Order the points by intersection along the curve
-//        std::sort(B_i.begin(), B_i.end(), compare_along_segment(*iter));
-//
-//        // Add edges between vertices in G_i
-//        for (const Point &p : B_i) {
-//            MotionGraphVertex_t *v = nullptr;
-//            for (int i = 0; i < S.size(); i++) {
-//                if (p == S[i]) {
-//                    v = &source_descriptors[i];
-//                } else if (p == T[i]) {
-//                    v = &target_descriptors[i];
-//                }
-//            }
-//            CGAL_assertion(v != nullptr);
-//
-//            if (first == nullptr) {
-//                first = v;
-//            }
-//
-//            if (v != nullptr && u != nullptr && u != v) {
-//                G_i.add_edge(*u, *v);
-//            }
-//
-//            u = v;
-//        }
-//
-//        curr = iter->target();
-//    } while (curr != start);
-//
-//    // Add the edge completing the boundary
-//    CGAL_assertion((first == nullptr) == (u == nullptr));
-//    if (first != nullptr && u != nullptr)  {
-//        G_i.add_edge(*first, *u);
-//    }
+    General_polygon_set gps = remove_start_target_configs(F_i, U);
+    std::vector<Polygon_with_holes> F_star;
+    gps.polygons_with_holes(std::back_inserter(F_star));
 
     // Add edges between vertices in H_i
     for (const Polygon_with_holes &F_star_i : F_star) {
-        std::vector<MotionGraphVertex_t> B_i, H_i;
+        std::vector<MotionGraphVertexDescriptor> B_i, H_i;
+        const Polygon &boundary = F_star_i.outer_boundary();
 
-        for (int i = 0; i < S.size(); i++) {
-            if (check_inside(S[i], F_i)) {
-                const Polygon &boundary = F_star_i.outer_boundary();
-                if (check_inside(S[i], boundary)) {
-                    H_i.push_back(source_descriptors[i]);
-                } else if (do_intersect(D<2>(S[i]), boundary)) {
-                    B_i.push_back(source_descriptors[i]);
-                }
-                if (check_inside(T[i], boundary)) {
-                    H_i.push_back(target_descriptors[i]);
-                } else if (do_intersect(D<2>(T[i]), boundary)) {
-                    B_i.push_back(target_descriptors[i]);
-                }
+        for (int i = 0; i < G_i.num_vertices(); i++) {
+            const MotionGraphVertexDescriptor v = boost::vertex(i, G_i);
+            const Configuration &config = G_i[v];
+            const Point& point = config.getPoint();
+            if (check_inside(point, boundary)) {
+                H_i.push_back(v);
+            } else if (check_inside(point, F_i) && do_intersect(D<2>(point), boundary)) {
+                B_i.push_back(v);
             }
         }
 
-        for (const MotionGraphVertex_t &b : B_i) {
-            for (const MotionGraphVertex_t &h : H_i) {
+        for (const MotionGraphVertexDescriptor &b : B_i) {
+            for (const MotionGraphVertexDescriptor &h : H_i) {
                 G_i.add_edge(b, h);
             }
         }

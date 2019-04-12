@@ -26,8 +26,14 @@ qt5_add_resources(CGAL_Qt5_RESOURCE_FILES)
 # Create the library and link it
 add_executable(mrmp
         src/main.cpp
-        src/mrmp.cpp
+        src/WorkspaceGraphicsItem.cpp
+        src/Configuration.cpp
+        src/ConfigurationSet.cpp
+        src/ConfigurationSetGraphicsItem.cpp
+        src/FreeSpace.cpp
+        src/FreeSpaceGraphicsItem.cpp
         src/MainWindow.cpp
+        src/mrmp.cpp
         ${CGAL_Qt5_UI_FILES}
         ${CGAL_Qt5_RESOURCE_FILES}
         ${CGAL_Qt5_MOC_FILES})

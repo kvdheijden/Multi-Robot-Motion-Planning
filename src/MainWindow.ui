@@ -90,7 +90,6 @@
                 <property name="title">
                     <string>Tools</string>
                 </property>
-                <addaction name="actionGenerateFreeSpace" />
                 <addaction name="actionGenerateMotionGraph" />
             </widget>
             <widget class="QMenu" name="menuView">
@@ -194,20 +193,12 @@
             </property>
         </action>
 
-        <action name="actionGenerateFreeSpace">
-            <property name="text">
-                <string>Generate &amp;Free-space</string>
-            </property>
-            <property name="shortcut">
-                <string>Ctrl+F</string>
-            </property>
-        </action>
         <action name="actionGenerateMotionGraph">
             <property name="text">
-                <string>Generate &amp;Motion graph</string>
+                <string>&amp;Generate Motion graph</string>
             </property>
             <property name="shortcut">
-                <string>Ctrl+M</string>
+                <string>Ctrl+G</string>
             </property>
         </action>
 

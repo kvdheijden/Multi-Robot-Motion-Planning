@@ -12,8 +12,8 @@
 typedef CGAL::Exact_predicates_exact_constructions_kernel_with_sqrt                         Kernel;
 typedef CGAL::Algebraic_kernel_for_circles_2_2<Kernel::FT>                                  Algebraic_kernel;
 typedef CGAL::Circular_kernel_2<Kernel, Algebraic_kernel>                                   CircularKernel;
+typedef CGAL::Polygon_2<Kernel>                                                             Workspace;
 typedef Kernel::Point_2                                                                     Point;
-typedef CGAL::Polygon_2<Kernel>                                                             Input_polygon;
 typedef Kernel::Circle_2                                                                    Circle;
 typedef Kernel::Segment_2                                                                   Segment;
 
