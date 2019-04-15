@@ -120,7 +120,7 @@ void MainWindow::processInputStartConfigs(CGAL::Object object) {
 
         // Determine if point is inside free space
         bool inside = false;
-        for (const Polygon& F : free_space) {
+        for (const Polygon &F : free_space) {
             if (check_inside(point, F)) {
                 inside = true;
                 break;
@@ -144,7 +144,7 @@ void MainWindow::processInputTargetConfigs(CGAL::Object object) {
 
         // Determine if point is inside free space
         bool inside = false;
-        for (const Polygon& F : free_space) {
+        for (const Polygon &F : free_space) {
             if (check_inside(point, F)) {
                 inside = true;
                 break;
@@ -224,11 +224,11 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
     for (const Polygon &F_i : free_space) {
         // Create a Interference forest vertex
         InterferenceForestVertexDescriptor i = G.add_vertex();
-        InterferenceForestVertex& v = G[i];
+        InterferenceForestVertex &v = G[i];
         v.freeSpaceComponent = &F_i;
 
         // Retrieve the motion graph from it
-        MotionGraph& G_i = v.motionGraph;
+        MotionGraph &G_i = v.motionGraph;
 
         // Generate the motion graph
         generate_motion_graph(F_i, configurations, G_i);
@@ -240,7 +240,7 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
 #endif
     }
 
-    for (int i = 0; i < G.num_vertices(); i++) {
+    for (int i = 0; i < boost::num_vertices(G); i++) {
         for (int j = 0; j < i; j++) {
 
             const InterferenceForestVertexDescriptor v_i = boost::vertex(i, G);
@@ -271,6 +271,62 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
               G.num_vertices() << " vertices and " <<
               G.num_edges() << " edges." << std::endl;
 #endif
+}
+
+void MainWindow::on_actionSolve_triggered() {
+    /// Topological sorting (Kahn's algorithm)
+    // L <- Empty list that will contain the sorted elements
+    std::list<InterferenceForestVertexDescriptor> L;
+    // S <- Set of all nodes with no incoming edge
+    std::set<InterferenceForestVertexDescriptor> S;
+    for (int i = 0; i < boost::num_vertices(G); i++) {
+        InterferenceForestVertexDescriptor u = boost::vertex(i, G);
+        G[u].visited = false;
+        if (boost::in_degree(u, G) == 0) {
+            S.insert(u);
+        }
+    }
+
+    while (!S.empty()) {
+        // Remove a node n from S
+        auto iter = S.begin();
+        const InterferenceForestVertexDescriptor n = *iter;
+        S.erase(iter);
+
+        // Add n to tail of L
+        L.push_back(n);
+
+        G[n].visited = true;
+
+        // For each node m with an edge e from n to m
+        typename boost::graph_traits<InterferenceForest>::out_edge_iterator ei, ei_end;
+        for (boost::tie(ei, ei_end) = boost::out_edges(n, G); ei != ei_end; ++ei) {
+            CGAL_assertion(boost::source(*ei, G) == n);
+            const InterferenceForestVertexDescriptor m = boost::target(*ei, G);
+
+            // If m has no other incoming edges
+            typename boost::graph_traits<InterferenceForest>::in_edge_iterator ej, ej_end;
+            for (boost::tie(ej, ej_end) = boost::in_edges(m, G); ej != ej_end; ++ej) {
+                CGAL_assertion(boost::target(*ej, G) == m);
+                const InterferenceForestVertexDescriptor l = boost::source(*ej, G);
+                if (!G[l].visited) {
+                    break;
+                }
+            }
+            if (ej == ej_end) {
+                S.insert(m);
+            }
+        }
+    }
+
+    // If G has a cycle, L will not contain every vertex in G
+    CGAL_assertion(boost::num_vertices(G) == L.size());
+
+    for (const InterferenceForestVertexDescriptor &n : L) {
+        InterferenceForestVertex &v = G[n];
+        MotionGraph& G_i = v.motionGraph;
+        solve_motion_graph(G_i);
+    }
 }
 
 void MainWindow::on_actionRecenter_triggered() {

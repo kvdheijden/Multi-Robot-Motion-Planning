@@ -64,6 +64,7 @@ public slots:
     void on_actionInsertTargetConfigs_toggled(bool checked);
 
     void on_actionGenerateMotionGraph_triggered();
+    void on_actionSolve_triggered();
 
     void on_actionRecenter_triggered();
 

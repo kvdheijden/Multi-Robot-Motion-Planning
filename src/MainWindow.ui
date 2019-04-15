@@ -91,6 +91,7 @@
                     <string>Tools</string>
                 </property>
                 <addaction name="actionGenerateMotionGraph" />
+                <addaction name="actionSolve" />
             </widget>
             <widget class="QMenu" name="menuView">
                 <property name="title">
@@ -199,6 +200,14 @@
             </property>
             <property name="shortcut">
                 <string>Ctrl+G</string>
+            </property>
+        </action>
+        <action name="actionSolve">
+            <property name="text">
+                <string>&amp;Solve Interference Forest</string>
+            </property>
+            <property name="shortcut">
+                <string>Ctrl+S</string>
             </property>
         </action>
 

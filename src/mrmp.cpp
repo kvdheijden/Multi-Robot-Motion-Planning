@@ -148,3 +148,7 @@ void generate_motion_graph(const Polygon &F_i,
         }
     }
 }
+
+void solve_motion_graph(MotionGraph& G_i) {
+    // TODO
+}

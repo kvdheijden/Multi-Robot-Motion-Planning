@@ -48,4 +48,6 @@ void generate_motion_graph(const Polygon &F_i,
                            const ConfigurationSet &configurations,
                            MotionGraph &G_i);
 
+void solve_motion_graph(MotionGraph& G_i);
+
 #endif //MULTI_ROBOT_MOTION_PLANNING_MRMP_H
