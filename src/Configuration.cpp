@@ -8,6 +8,14 @@ Configuration::Configuration(const Configuration &other) = default;
 
 Configuration::~Configuration() = default;
 
+bool Configuration::operator==(const Configuration& other) const {
+    return p == other.p && is_source == other.is_source && index == other.index;
+}
+
+bool Configuration::operator!=(const Configuration& other) const {
+    return !(operator==(other));
+}
+
 const Point &Configuration::getPoint() const {
     return p;
 }

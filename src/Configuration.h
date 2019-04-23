@@ -16,6 +16,9 @@ public:
 
     ~Configuration();
 
+    bool operator==(const Configuration& other) const;
+    bool operator!=(const Configuration& other) const;
+
     const Point &getPoint() const;
 
     const bool &isStart() const;

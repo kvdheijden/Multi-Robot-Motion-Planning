@@ -3,6 +3,8 @@
 #include <QMessageBox>
 #include <CGAL/assertions.h>
 
+#include <boost/graph/graph_utility.hpp>
+
 #include "mrmp.h"
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow() {
@@ -226,51 +228,54 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
         InterferenceForestVertexDescriptor i = G.add_vertex();
         InterferenceForestVertex &v = G[i];
         v.freeSpaceComponent = &F_i;
+        v.visited = false;
 
         // Retrieve the motion graph from it
-        MotionGraph &G_i = v.motionGraph;
+        MotionGraph &G_i = *v.motionGraph;
 
         // Generate the motion graph
         generate_motion_graph(F_i, configurations, G_i);
 
-#ifndef NDEBUG
-        std::cerr << "Graph G_i has " <<
-                  G_i.num_vertices() << " vertices and " <<
-                  G_i.num_edges() << " edges." << std::endl;
-#endif
+        // Print
+        std::cerr << "G_i: " << std::endl;
+        boost::print_graph(G_i, std::cerr);
     }
 
-    for (int i = 0; i < boost::num_vertices(G); i++) {
-        for (int j = 0; j < i; j++) {
+    typename boost::graph_traits<InterferenceForest>::vertex_iterator v_begin, vii, vij, v_end;
+    boost::tie(v_begin, v_end) = boost::vertices(G);
 
-            const InterferenceForestVertexDescriptor v_i = boost::vertex(i, G);
-            const InterferenceForestVertexDescriptor v_j = boost::vertex(j, G);
-            const Polygon &G_i = *(G[v_i].freeSpaceComponent);
-            const Polygon &G_j = *(G[v_j].freeSpaceComponent);
+    for (vii = v_begin; vii != v_end; vii++) {
+        const InterferenceForestVertexDescriptor &vdi = *vii;
+        const InterferenceForestVertex &vi = G[vdi];
+        const Polygon &G_i = *vi.freeSpaceComponent;
+
+        for (vij = v_begin; vij != vii; vij++) {
+            const InterferenceForestVertexDescriptor &vdj = *vij;
+            const InterferenceForestVertex &vj = G[vdj];
+            const Polygon &G_j = *vj.freeSpaceComponent;
 
             for (const Configuration &c : configurations) {
                 if (check_inside(c.getPoint(), G_i) && do_intersect(D<2>(c.getPoint()), G_j)) {
                     if (c.isStart()) {
-                        G.add_edge(v_i, v_j);
+                        G.add_edge(vdi, vdj);
                     } else {
-                        G.add_edge(v_j, v_i);
+                        G.add_edge(vdj, vdi);
                     }
                 }
                 if (check_inside(c.getPoint(), G_j) && do_intersect(D<2>(c.getPoint()), G_i)) {
                     if (c.isStart()) {
-                        G.add_edge(v_j, v_i);
+                        G.add_edge(vdj, vdi);
                     } else {
-                        G.add_edge(v_i, v_j);
+                        G.add_edge(vdi, vdj);
                     }
                 }
             }
         }
     }
-#ifndef NDEBUG
-    std::cerr << "Graph G has " <<
-              G.num_vertices() << " vertices and " <<
-              G.num_edges() << " edges." << std::endl;
-#endif
+
+    // Print
+    std::cerr << "G: " << std::endl;
+    boost::print_graph(G, std::cerr);
 }
 
 void MainWindow::on_actionSolve_triggered() {
@@ -279,9 +284,12 @@ void MainWindow::on_actionSolve_triggered() {
     std::list<InterferenceForestVertexDescriptor> L;
     // S <- Set of all nodes with no incoming edge
     std::set<InterferenceForestVertexDescriptor> S;
-    for (int i = 0; i < boost::num_vertices(G); i++) {
-        InterferenceForestVertexDescriptor u = boost::vertex(i, G);
-        G[u].visited = false;
+
+    typename boost::graph_traits<InterferenceForest>::vertex_iterator vi, v_end;
+    for (boost::tie(vi, v_end) = boost::vertices(G); vi != v_end; ++vi) {
+        InterferenceForestVertexDescriptor u = *vi;
+        InterferenceForestVertex &v = G[u];
+        v.visited = false;
         if (boost::in_degree(u, G) == 0) {
             S.insert(u);
         }
@@ -291,12 +299,12 @@ void MainWindow::on_actionSolve_triggered() {
         // Remove a node n from S
         auto iter = S.begin();
         const InterferenceForestVertexDescriptor n = *iter;
+        G[n].visited = true;
         S.erase(iter);
 
         // Add n to tail of L
         L.push_back(n);
 
-        G[n].visited = true;
 
         // For each node m with an edge e from n to m
         typename boost::graph_traits<InterferenceForest>::out_edge_iterator ei, ei_end;
@@ -322,10 +330,26 @@ void MainWindow::on_actionSolve_triggered() {
     // If G has a cycle, L will not contain every vertex in G
     CGAL_assertion(boost::num_vertices(G) == L.size());
 
+    std::list<Move> moves;
     for (const InterferenceForestVertexDescriptor &n : L) {
         InterferenceForestVertex &v = G[n];
-        MotionGraph& G_i = v.motionGraph;
-        solve_motion_graph(G_i);
+        MotionGraph &G_i = *v.motionGraph;
+        solve_motion_graph(G_i, moves);
+    }
+
+    std::vector<const Configuration*> robots;
+    for (const Configuration &configuration : configurations) {
+        if (configuration.isStart()) {
+            robots.push_back(&configuration);
+        }
+    }
+
+    for (const Move &move : moves) {
+        for (const Polygon &f : free_space) {
+            if (check_inside(move.first->getPoint(), f)) {
+                get_shortest_path(move, f, robots);
+            }
+        }
     }
 }
 

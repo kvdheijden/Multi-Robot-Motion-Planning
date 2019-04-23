@@ -3,6 +3,10 @@
 #include <CGAL/Boolean_set_operations_2.h>
 #include <CGAL/approximated_offset_2.h>
 
+#include <boost/graph/kruskal_min_spanning_tree.hpp>
+#include <boost/graph/filtered_graph.hpp>
+#include <boost/graph/dijkstra_shortest_paths.hpp>
+
 bool check_inside(const Point &point, const Workspace &workspace) {
     CGAL::Bounded_side bounded_side = CGAL::bounded_side_2(workspace.vertices_begin(),
                                                            workspace.vertices_end(),
@@ -15,7 +19,7 @@ bool check_inside(const Point &point, const Polygon &polygon) {
     const General_polygon_set gps(polygon);
     const Arrangement &arr = gps.arrangement();
 
-    typedef CGAL::Arr_naive_point_location <Arrangement> Point_location;
+    typedef CGAL::Arr_naive_point_location<Arrangement> Point_location;
     typedef Point_location::Point_2 Point_to_locate;
     typedef Point_location::Result Point_location_result;
     typedef Point_location_result::Type Point_location_result_type;
@@ -56,12 +60,12 @@ void generate_free_space(const Workspace &W, FreeSpace &F) {
 
 
 static General_polygon_set remove_start_target_configs(const Polygon &F,
-                                                const ConfigurationSet &U) {
+                                                       const ConfigurationSet &U) {
     General_polygon_set gps(F);
 
     int s_i = 0, t_i = 0;
     for (const Configuration &u : U) {
-        const Point& p = u.getPoint();
+        const Point &p = u.getPoint();
         if (check_inside(p, F)) {
             gps.difference(D<2>(p));
             if (u.isStart()) {
@@ -104,9 +108,11 @@ void generate_motion_graph(const Polygon &F_i,
                            MotionGraph &G_i) {
     G_i.clear();
 
-    for (const Configuration& u : U) {
+    for (const Configuration &u : U) {
         if (check_inside(u.getPoint(), F_i)) {
-            G_i.add_vertex(u);
+            MotionGraphVertexDescriptor v = boost::add_vertex(G_i);
+            G_i[v].configuration = &u;
+            G_i[v].hasPebble = u.isStart();
         }
     }
 
@@ -119,36 +125,177 @@ void generate_motion_graph(const Polygon &F_i,
         std::vector<MotionGraphVertexDescriptor> B_i, H_i;
         const Polygon &boundary = F_star_i.outer_boundary();
 
-        for (int i = 0; i < G_i.num_vertices(); i++) {
-            const MotionGraphVertexDescriptor v = boost::vertex(i, G_i);
-            const Configuration &config = G_i[v];
-            const Point& point = config.getPoint();
+        typename boost::graph_traits<MotionGraph>::vertex_iterator vi, v_end;
+        for (boost::tie(vi, v_end) = boost::vertices(G_i); vi != v_end; ++vi) {
+            const MotionGraphVertexDescriptor &vd = *vi;
+            const MotionGraphVertex &v = G_i[vd];
+            const Configuration &configuration = *v.configuration;
+            const Point &point = configuration.getPoint();
+
             if (check_inside(point, boundary)) {
-                H_i.push_back(v);
+                H_i.push_back(vd);
             } else if (check_inside(point, F_i) && do_intersect(D<2>(point), boundary)) {
-                B_i.push_back(v);
+                B_i.push_back(vd);
             }
         }
 
         for (const MotionGraphVertexDescriptor &b : B_i) {
             for (const MotionGraphVertexDescriptor &h : H_i) {
-                G_i.add_edge(b, h);
+                boost::add_edge(b, h, G_i);
             }
         }
 
         for (int i = 0; i < B_i.size(); i++) {
             for (int j = 0; j < i; j++) {
-                G_i.add_edge(B_i[i], B_i[j]);
+                boost::add_edge(B_i[i], B_i[j], G_i);
             }
         }
         for (int i = 0; i < H_i.size(); i++) {
             for (int j = 0; j < i; j++) {
-                G_i.add_edge(H_i[i], H_i[j]);
+                boost::add_edge(H_i[i], H_i[j], G_i);
             }
         }
     }
 }
 
-void solve_motion_graph(MotionGraph& G_i) {
-    // TODO
+MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
+                                               const MotionGraphVertexDescriptor &start,
+                                               const std::function<bool(MotionGraphVertexDescriptor)> &predicate) {
+
+    std::queue<MotionGraphVertexDescriptor> queue;
+
+    typename boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
+    for (boost::tie(vi, vi_end) = boost::vertices(graph); vi != vi_end; ++vi) {
+        graph[*vi].visited = false;
+        graph[*vi].predecessor = nullptr;
+    }
+
+    graph[start].visited = true;
+    graph[start].predecessor = start;
+    queue.push(start);
+
+    while (!queue.empty()) {
+        MotionGraphVertexDescriptor u = queue.front();
+        queue.pop();
+
+        typename boost::graph_traits<MotionGraph>::out_edge_iterator ei, ei_end;
+        for (boost::tie(ei, ei_end) = boost::out_edges(u, graph); ei != ei_end; ++ei) {
+            MotionGraphVertexDescriptor target = boost::target(*ei, graph);
+            if (!graph[target].visited) {
+                graph[target].visited = true;
+                graph[target].predecessor = u;
+                queue.push(target);
+
+                if (predicate(target)) {
+                    return target;
+                }
+            }
+
+        }
+    }
+
+    CGAL_assertion(false);
+    return nullptr;
+}
+
+void solve_motion_graph(const MotionGraph &G_i,
+                        std::list<Move> &moves) {
+
+    std::vector<MotionGraphEdgeDescriptor> spanning_tree;
+    boost::kruskal_minimum_spanning_tree(G_i, std::back_inserter(spanning_tree));
+
+    MotionGraph T_g(G_i);
+    boost::remove_edge_if([&](const MotionGraphEdgeDescriptor &ed) {
+        return std::find(spanning_tree.begin(), spanning_tree.end(), ed) == spanning_tree.end();
+    }, T_g);
+
+    while (boost::num_vertices(T_g)) {
+        // Find a leave (preferable target)
+        boost::graph_traits<MotionGraph>::vertex_iterator v_i, v_j, v_end;
+        for (boost::tie(v_i, v_end) = boost::vertices(T_g); v_i != v_end; ++v_i) {
+            if (boost::degree(*v_i, T_g) <= 1) {
+                v_j = v_i;
+                if (!T_g[*v_i].configuration->isStart()) {
+                    break;
+                }
+            }
+        }
+
+        CGAL_assertion(v_i != v_end);
+
+        const MotionGraphVertexDescriptor &v = *v_j;
+        const MotionGraphVertex &n = T_g[v];
+
+        // Find closest pebble w with a pebble
+        MotionGraphVertexDescriptor w = find_shortest_path(T_g, *v_j, [&](MotionGraphVertexDescriptor vd) {
+            if (!n.configuration->isStart()) {
+                return T_g[vd].hasPebble;
+            } else {
+                return !T_g[vd].hasPebble;
+            }
+        });
+
+        std::vector<MotionGraphVertexDescriptor> path;
+        for (MotionGraphVertexDescriptor predecessor = w;
+             predecessor != T_g[predecessor].predecessor;
+             predecessor = T_g[predecessor].predecessor) {
+            path.push_back(predecessor);
+        }
+
+        for (auto iter = path.begin(); iter != path.end(); ++iter) {
+            const MotionGraphVertexDescriptor &vd = *iter;
+            MotionGraphVertex &first = T_g[vd];
+            if (vd != v) {
+                // This is not the last vertex in our path
+                auto iter_next = iter + 1;
+                CGAL_assertion(iter_next != path.end());
+
+                const MotionGraphVertexDescriptor &next = *iter_next;
+                MotionGraphVertex &second = T_g[next];
+
+                if (n.configuration->isStart()) {
+                    CGAL_assertion(second.hasPebble);
+                    CGAL_assertion(!first.hasPebble);
+                    second.hasPebble = false;
+                    first.hasPebble = true;
+                    moves.emplace_back(second.configuration, first.configuration);
+                } else {
+                    CGAL_assertion(first.hasPebble);
+                    CGAL_assertion(!second.hasPebble);
+                    first.hasPebble = false;
+                    second.hasPebble = true;
+                    moves.emplace_back(first.configuration, second.configuration);
+                }
+            }
+        }
+
+        CGAL_assertion(n.hasPebble != n.configuration->isStart());
+
+        // Remove vertex from T_g
+        boost::clear_vertex(v, T_g);
+        boost::remove_vertex(v, T_g);
+    }
+}
+
+
+void get_shortest_path(const Move &move,
+                       const Polygon &f,
+                       std::vector<const Configuration *> &robots) {
+
+    auto iter = robots.begin();
+    for (; iter != robots.end(); ++iter) {
+        if ((*iter)->getPoint() == move.first->getPoint()) {
+            break;
+        }
+    }
+
+    CGAL_assertion(iter != robots.end());
+
+    const Point &source = move.first->getPoint();
+    const Point &target = move.second->getPoint();
+    // TODO: Get shortest path in f from source to target
+
+    // Update robots
+    robots.erase(iter);
+    robots.push_back(move.second);
 }
