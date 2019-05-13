@@ -16,6 +16,8 @@ typedef CGAL::Polygon_2<Kernel>                                                 
 typedef Kernel::Point_2                                                                     Point;
 typedef Kernel::Circle_2                                                                    Circle;
 typedef Kernel::Segment_2                                                                   Segment;
+typedef Kernel::Line_2                                                                      Line;
+typedef Kernel::Vector_2                                                                    Vector;
 
 typedef CGAL::Gps_circle_segment_traits_2<Kernel>                                           Traits;
 typedef Traits::Polygon_2                                                                   Polygon;
