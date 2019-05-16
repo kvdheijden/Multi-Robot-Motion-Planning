@@ -9,6 +9,8 @@ struct InterferenceForestVertex {
     const Polygon *freeSpaceComponent;
     bool visited;
 
+    int index;
+
     InterferenceForestVertex() :
             motionGraph(new MotionGraph()),
             freeSpaceComponent(nullptr),

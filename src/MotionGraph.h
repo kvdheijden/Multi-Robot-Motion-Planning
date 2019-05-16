@@ -10,6 +10,10 @@ struct MotionGraphVertex {
 
     bool visited;
     typename boost::graph_traits<boost::undirected_graph<>>::vertex_descriptor predecessor;
+
+    bool operator==(const MotionGraphVertex &that) const {
+        return *(this->configuration) == *(that.configuration);
+    }
 };
 
 static_assert(std::is_default_constructible<MotionGraphVertex>(), "");
@@ -23,6 +27,5 @@ typedef std::pair<const Configuration *, const Configuration *> Move;
 
 typedef boost::graph_traits<MotionGraph>::vertex_descriptor MotionGraphVertexDescriptor;
 typedef boost::graph_traits<MotionGraph>::edge_descriptor MotionGraphEdgeDescriptor;
-
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_MOTIONGRAPH_H

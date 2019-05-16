@@ -29,6 +29,8 @@ Polygon D(const Point &p) {
     return result;
 }
 
+std::string get(const std::function<std::string(void *)> &name, void *vd);
+
 bool check_inside(const Point &point,
                   const Workspace &workspace);
 

@@ -223,12 +223,14 @@ void MainWindow::on_actionInsertTargetConfigs_toggled(bool checked) {
 
 void MainWindow::on_actionGenerateMotionGraph_triggered() {
     G.clear();
+    int index = 0;
     for (const Polygon &F_i : free_space) {
         // Create a Interference forest vertex
         InterferenceForestVertexDescriptor i = G.add_vertex();
         InterferenceForestVertex &v = G[i];
         v.freeSpaceComponent = &F_i;
         v.visited = false;
+        v.index = index++;
 
         // Retrieve the motion graph from it
         MotionGraph &G_i = *v.motionGraph;
@@ -237,8 +239,12 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
         generate_motion_graph(F_i, configurations, G_i);
 
         // Print
-        std::cerr << "G_i: " << std::endl;
-        boost::print_graph(G_i, std::cerr);
+        std::cerr << std::string("G_") + std::to_string(v.index) << std::endl;
+        boost::print_graph(G_i, [&](MotionGraphVertexDescriptor vd) {
+            const Configuration *c = G_i[vd].configuration;
+            return (c->isStart() ? "s" : "t") + std::to_string(c->getIndex());
+        }, std::cerr);
+        std::cerr << std::endl;
     }
 
     typename boost::graph_traits<InterferenceForest>::vertex_iterator v_begin, vii, vij, v_end;
@@ -274,8 +280,11 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
     }
 
     // Print
-    std::cerr << "G: " << std::endl;
-    boost::print_graph(G, std::cerr);
+    std::cerr << "Interference Forest: " << std::endl;
+    boost::print_graph(G, [&](InterferenceForestVertexDescriptor vd) {
+        return "G_" + std::to_string(G[vd].index);
+    }, std::cerr);
+    std::cerr << std::endl;
 }
 
 void MainWindow::on_actionSolve_triggered() {
@@ -337,20 +346,28 @@ void MainWindow::on_actionSolve_triggered() {
         solve_motion_graph(G_i, moves);
     }
 
-    std::vector<const Configuration*> robots;
-    for (const Configuration &configuration : configurations) {
-        if (configuration.isStart()) {
-            robots.push_back(&configuration);
-        }
+    for (const Move &m : moves) {
+        std::cerr << "Move robot at "
+                  << (m.first->isStart() ? "s" : "t") << m.first->getIndex()
+                  << " towards "
+                  << (m.second->isStart() ? "s" : "t") << m.second->getIndex()
+                  << std::endl;
     }
 
-    for (const Move &move : moves) {
-        for (const Polygon &f : free_space) {
-            if (check_inside(move.first->getPoint(), f)) {
-                get_shortest_path(move, f, robots);
-            }
-        }
-    }
+//    std::vector<const Configuration *> robots;
+//    for (const Configuration &configuration : configurations) {
+//        if (configuration.isStart()) {
+//            robots.push_back(&configuration);
+//        }
+//    }
+//
+//    for (const Move &move : moves) {
+//        for (const Polygon &f : free_space) {
+//            if (check_inside(move.first->getPoint(), f)) {
+//                get_shortest_path(move, f, robots);
+//            }
+//        }
+//    }
 }
 
 void MainWindow::on_actionRecenter_triggered() {

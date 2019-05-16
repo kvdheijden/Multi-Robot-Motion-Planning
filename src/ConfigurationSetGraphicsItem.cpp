@@ -35,7 +35,11 @@ void ConfigurationSetGraphicsItem::paint(QPainter *painter, const QStyleOptionGr
     Kernel::FT unit_sq_r(1.);
     Kernel::FT coll_sq_r(2. * 2.);
 
+    QFont font = painter->font();
+    font.setPixelSize(2);
+
     for (const Configuration &config : configs) {
+        const Point &point = config.getPoint();
         // Set unit disc color
         if (config.isStart()) {
             painter->setPen(QPen(sourceColor, .1));
@@ -46,13 +50,20 @@ void ConfigurationSetGraphicsItem::paint(QPainter *painter, const QStyleOptionGr
         }
 
         // Paint unit disc
-        painterOstream << Circle(config.getPoint(), unit_sq_r);
+        painterOstream << Circle(point, unit_sq_r);
 
         // Set collision disc color
         painter->setPen(QPen(collisionDiscColor, .1));
         painter->setBrush(QBrush());
 
         // Paint collision disc
-        painterOstream << Circle(config.getPoint(), coll_sq_r);
+        painterOstream << Circle(point, coll_sq_r);
+
+        // Paint name
+        char label[8] = {0};
+        painter->setPen(QPen(Qt::black, .1));
+        sprintf(label, "%c%u", config.isStart() ? 's' : 't', config.getIndex());
+        painter->setFont(font);
+        painter->drawText(QPointF(point.x().doubleValue(), point.y().doubleValue()), QString(label));
     }
 }
