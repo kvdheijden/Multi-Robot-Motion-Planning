@@ -51,10 +51,12 @@ void generate_motion_graph(const Polygon &F_i,
                            MotionGraph &G_i);
 
 void solve_motion_graph(const MotionGraph &G_i,
-                        std::list<Move> &moves);
+                        std::vector<Move> &moves);
 
 void get_shortest_path(const Move &move,
                        const Polygon &f,
                        std::vector<const Configuration*> &robots);
+
+void simplify_moves(std::vector<Move> &moves);
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_MRMP_H

@@ -12,7 +12,7 @@
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/graph_utility.hpp>
 
-std::string get(const std::function<std::string(void *)> &name,
+std::string get(const std::function<std::string(void * )> &name,
                 void *vd) {
     return name(vd);
 }
@@ -94,7 +94,7 @@ static General_polygon_set remove_start_target_configs(const Polygon &F,
 
 bool do_intersect(const Polygon &pgn1, const Polygon::X_monotone_curve_2 &curve) {
     for (auto iter1 = pgn1.curves_begin(); iter1 != pgn1.curves_end(); ++iter1) {
-        std::list<CGAL::Object> objects;
+        std::list <CGAL::Object> objects;
         auto result = iter1->intersect(curve, std::back_inserter(objects));
 
         if (!objects.empty()) {
@@ -127,18 +127,18 @@ void generate_motion_graph(const Polygon &F_i,
     }
 
     General_polygon_set gps = remove_start_target_configs(F_i, U);
-    std::vector<Polygon_with_holes> F_star;
+    std::vector <Polygon_with_holes> F_star;
     gps.polygons_with_holes(std::back_inserter(F_star));
 
     // Add edges between vertices in H_i
     for (const Polygon_with_holes &F_star_i : F_star) {
-        std::vector<MotionGraphVertexDescriptor> B_i, H_i;
+        std::vector <MotionGraphVertexDescriptor> B_i, H_i;
         const Polygon &boundary = F_star_i.outer_boundary();
 
         typename boost::graph_traits<MotionGraph>::vertex_iterator vi, v_end;
         for (boost::tie(vi, v_end) = boost::vertices(G_i);
-             vi != v_end;
-             ++vi) {
+        vi != v_end;
+        ++vi) {
             const MotionGraphVertexDescriptor &vd = *vi;
             const MotionGraphVertex &v = G_i[vd];
             const Configuration &configuration = *v.configuration;
@@ -178,12 +178,12 @@ MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
         return start;
     }
 
-    std::queue<MotionGraphVertexDescriptor> queue;
+    std::queue <MotionGraphVertexDescriptor> queue;
 
     typename boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
     for (boost::tie(vi, vi_end) = boost::vertices(graph);
-         vi != vi_end;
-         ++vi) {
+    vi != vi_end;
+    ++vi) {
         graph[*vi].visited = false;
         graph[*vi].predecessor = nullptr;
     }
@@ -215,10 +215,73 @@ MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
     return nullptr;
 }
 
+class ST_Weight_Map {
+public:
+    typedef CORE::Expr value_type;
+    typedef const value_type &reference;
+    typedef MotionGraphEdgeDescriptor key_type;
+    typedef boost::readable_property_map_tag category;
+
+    friend value_type get(ST_Weight_Map me, key_type key) {
+        return me[key];
+    }
+
+    value_type operator[](key_type key) {
+        const MotionGraphVertexDescriptor &sd = boost::source(key, graph);
+        const MotionGraphVertexDescriptor &td = boost::target(key, graph);
+
+        const MotionGraphVertex &s = graph[sd];
+        const MotionGraphVertex &t = graph[td];
+
+        const Point &sp = s.configuration->getPoint();
+        const Point &tp = t.configuration->getPoint();
+
+        return CGAL::sqrt(CGAL::squared_distance(sp, tp));
+    }
+
+    explicit ST_Weight_Map(const MotionGraph &graph) : graph(graph) {}
+
+private:
+    const MotionGraph &graph;
+};
+
+class ST_Vertex_Index_Map {
+public:
+    typedef int value_type;
+    typedef const value_type &reference;
+    typedef MotionGraphVertexDescriptor key_type;
+    typedef boost::readable_property_map_tag category;
+
+    friend value_type get(ST_Vertex_Index_Map me, key_type key) {
+        return me[key];
+    }
+
+    value_type operator[](key_type key) {
+        boost::graph_traits<MotionGraph>::vertex_iterator g_i, g_end;
+
+        int result = 0;
+        for (boost::tie(g_i, g_end) = boost::vertices(graph); g_i != g_end; ++g_i) {
+            const MotionGraphVertexDescriptor &vd = *g_i;
+            if (graph[vd] == graph[key]) {
+                return result;
+            }
+            result++;
+        }
+        return -1;
+    }
+
+    explicit ST_Vertex_Index_Map(const MotionGraph &graph) : graph(graph) {}
+private:
+    const MotionGraph &graph;
+};
+
 void solve_motion_graph(const MotionGraph &G_i,
-                        std::list<Move> &moves) {
-    std::vector<MotionGraphEdgeDescriptor> spanning_tree;
-    boost::kruskal_minimum_spanning_tree(G_i, std::back_inserter(spanning_tree));
+                        std::vector <Move> &moves) {
+    std::vector <MotionGraphEdgeDescriptor> spanning_tree;
+    ST_Weight_Map weight_map(G_i);
+    ST_Vertex_Index_Map vertex_index_map(G_i);
+    boost::kruskal_minimum_spanning_tree(G_i, std::back_inserter(spanning_tree),
+                                         boost::vertex_index_map(vertex_index_map).weight_map(weight_map));
 
     MotionGraph T_g;
     boost::graph_traits<MotionGraph>::vertex_iterator G_i_v, G_i_v_end;
@@ -353,7 +416,7 @@ public:
     }
 
 private:
-    std::map<key_type, value_type> _map;
+    std::map <key_type, value_type> _map;
 };
 
 class Polygon_with_holes_curve_iterator {
@@ -463,7 +526,7 @@ CORE::Expr get_distance(const Arrangement::X_monotone_curve_2 &curve) {
         return get_distance(curve.source(), curve.target());
     }
 
-    std::vector<std::pair<double, double>> polyline;
+    std::vector <std::pair<double, double>> polyline;
     curve.approximate(std::back_inserter(polyline), 10);
     CORE::Expr r(0);
     for (int i = 1; i < polyline.size(); i++) {
@@ -502,7 +565,7 @@ void get_tangent_points_on_circle(const Circle &circle, const Arrangement::Point
 }
 
 void get_tangent_point(const Arrangement::X_monotone_curve_2 &curve, const Arrangement::Point_2 &p,
-                       std::vector<std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
+                       std::vector <std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
     CGAL_assertion(curve.is_circular());
     const Circle &circle = curve.supporting_circle();
 
@@ -517,7 +580,7 @@ void get_tangent_point(const Arrangement::X_monotone_curve_2 &curve, const Arran
 }
 
 void get_tangent_points(const Arrangement::X_monotone_curve_2 &curve1, const Arrangement::X_monotone_curve_2 &curve2,
-                        std::vector<std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
+                        std::vector <std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
     CGAL_assertion(curve1.is_circular());
     CGAL_assertion(curve2.is_circular());
 
@@ -659,7 +722,7 @@ void get_shortest_path(const Move &move,
     Arrangement::Vertex_handle w = env.insert_in_face_interior(target, uf);
     edge_weight_map weight_map;
 
-    std::vector<std::pair<Arrangement::Point_2, Arrangement::Point_2>> points;
+    std::vector <std::pair<Arrangement::Point_2, Arrangement::Point_2>> points;
     for (auto curve1 : Polygon_with_holes_curve_iterator(pgn)) {
         for (auto curve2 : Polygon_with_holes_curve_iterator(pgn)) {
             if (curve1.is_circular() && curve2.is_circular()) {
@@ -690,7 +753,7 @@ void get_shortest_path(const Move &move,
         }
     }
 
-    for (std::pair<Arrangement::Point_2, Arrangement::Point_2> &ps : points) {
+    for (std::pair <Arrangement::Point_2, Arrangement::Point_2> &ps : points) {
         Arrangement::Point_2 &p = ps.first;
         Arrangement::Point_2 &q = ps.second;
         if (p == q) {
@@ -704,7 +767,7 @@ void get_shortest_path(const Move &move,
                 break;
             }
 
-            std::vector<CGAL::Object> objects;
+            std::vector <CGAL::Object> objects;
             curve.intersect(s, std::back_inserter(objects));
 
             for (const CGAL::Object &obj : objects) {
@@ -760,7 +823,7 @@ void get_shortest_path(const Move &move,
                                            distance_map(dist_map).
                                            predecessor_map(pred_map));
 
-    std::vector<Arrangement::Vertex_handle> path;
+    std::vector <Arrangement::Vertex_handle> path;
     Arrangement::Vertex_handle current = w;
     while (current != v) {
         path.push_back(current);
@@ -773,4 +836,29 @@ void get_shortest_path(const Move &move,
     }
     std::cerr << std::endl;
 
+}
+
+void simplify_moves(std::vector <Move> &moves) {
+    std::vector <Move> newMoves;
+
+    std::vector <Move> simplified;
+    for (int i = 0; i < moves.size(); i++) {
+        if (std::find(simplified.begin(), simplified.end(), moves[i]) != simplified.end()) {
+            continue;
+        }
+
+        const Configuration *source = moves[i].first;
+        const Configuration *target = moves[i].second;
+
+        for (int j = i + 1; j < moves.size(); j++) {
+            if (moves[j].first == target) {
+                target = moves[j].second;
+                simplified.push_back(moves[j]);
+            }
+        }
+
+        newMoves.emplace_back(source, target);
+    }
+
+    moves = newMoves;
 }

@@ -339,12 +339,14 @@ void MainWindow::on_actionSolve_triggered() {
     // If G has a cycle, L will not contain every vertex in G
     CGAL_assertion(boost::num_vertices(G) == L.size());
 
-    std::list<Move> moves;
+    std::vector<Move> moves;
     for (const InterferenceForestVertexDescriptor &n : L) {
         InterferenceForestVertex &v = G[n];
         MotionGraph &G_i = *v.motionGraph;
         solve_motion_graph(G_i, moves);
     }
+
+    simplify_moves(moves);
 
     for (const Move &m : moves) {
         std::cerr << "Move robot at "
