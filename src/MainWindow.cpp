@@ -233,7 +233,7 @@ void MainWindow::on_actionGenerateMotionGraph_triggered() {
         v.index = index++;
 
         // Retrieve the motion graph from it
-        MotionGraph &G_i = *v.motionGraph;
+        MotionGraph &G_i = v.motionGraph;
 
         // Generate the motion graph
         generate_motion_graph(F_i, configurations, G_i);
@@ -342,7 +342,7 @@ void MainWindow::on_actionSolve_triggered() {
     std::vector<Move> moves;
     for (const InterferenceForestVertexDescriptor &n : L) {
         InterferenceForestVertex &v = G[n];
-        MotionGraph &G_i = *v.motionGraph;
+        MotionGraph &G_i = v.motionGraph;
         solve_motion_graph(G_i, moves);
     }
 
@@ -356,20 +356,20 @@ void MainWindow::on_actionSolve_triggered() {
                   << std::endl;
     }
 
-//    std::vector<const Configuration *> robots;
-//    for (const Configuration &configuration : configurations) {
-//        if (configuration.isStart()) {
-//            robots.push_back(&configuration);
-//        }
-//    }
-//
-//    for (const Move &move : moves) {
-//        for (const Polygon &f : free_space) {
-//            if (check_inside(move.first->getPoint(), f)) {
-//                get_shortest_path(move, f, robots);
-//            }
-//        }
-//    }
+    std::vector<std::reference_wrapper<Configuration>> robots;
+    for (Configuration &configuration : configurations) {
+        if (configuration.isStart()) {
+            robots.emplace_back(configuration);
+        }
+    }
+
+    for (const Move &move : moves) {
+        for (const Polygon &f : free_space) {
+            if (check_inside(move.first->getPoint(), f)) {
+                get_shortest_path(move, f, robots);
+            }
+        }
+    }
 }
 
 void MainWindow::on_actionRecenter_triggered() {

@@ -12,7 +12,9 @@
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/graph_utility.hpp>
 
-std::string get(const std::function<std::string(void * )> &name,
+#include "IntervisibilityGraph.h"
+
+std::string get(const std::function<std::string(void *)> &name,
                 void *vd) {
     return name(vd);
 }
@@ -69,10 +71,9 @@ void generate_free_space(const Workspace &W, FreeSpace &F) {
 }
 
 
-static General_polygon_set remove_start_target_configs(const Polygon &F,
-                                                       const ConfigurationSet &U) {
-    General_polygon_set gps(F);
-
+static void remove_start_target_configs(const Polygon &F,
+                                        const ConfigurationSet &U,
+                                        General_polygon_set &gps) {
     int s_i = 0, t_i = 0;
     for (const Configuration &u : U) {
         const Point &p = u.getPoint();
@@ -88,16 +89,17 @@ static General_polygon_set remove_start_target_configs(const Polygon &F,
 
     // Ensure every free space part has equal no. of start and target configurations
     CGAL_assertion(s_i == t_i);
+}
 
-    return gps;
+bool do_intersect(const Polygon::X_monotone_curve_2 &curve1, const Polygon::X_monotone_curve_2 &curve2) {
+    std::list<CGAL::Object> objects;
+    curve1.intersect(curve2, std::back_inserter(objects));
+    return !objects.empty();
 }
 
 bool do_intersect(const Polygon &pgn1, const Polygon::X_monotone_curve_2 &curve) {
-    for (auto iter1 = pgn1.curves_begin(); iter1 != pgn1.curves_end(); ++iter1) {
-        std::list <CGAL::Object> objects;
-        auto result = iter1->intersect(curve, std::back_inserter(objects));
-
-        if (!objects.empty()) {
+    for (auto iter = pgn1.curves_begin(); iter != pgn1.curves_end(); ++iter) {
+        if (do_intersect(*iter, curve)) {
             return true;
         }
     }
@@ -108,6 +110,22 @@ bool do_intersect(const Polygon &pgn1, const Polygon &pgn2) {
     for (auto iter = pgn2.curves_begin(); iter != pgn2.curves_end(); ++iter) {
         if (do_intersect(pgn1, *iter)) {
             return true;
+        }
+    }
+    return false;
+}
+
+bool shared_boundary(const Polygon &p1, const Polygon &p2) {
+    for (auto iter1 = p1.curves_begin(); iter1 != p1.curves_end(); ++iter1) {
+        for (auto iter2 = p2.curves_begin(); iter2 != p2.curves_end(); ++iter2) {
+            std::vector<CGAL::Object> objects;
+            iter1->intersect(*iter2, std::back_inserter(objects));
+            for (auto object : objects) {
+                Polygon::X_monotone_curve_2 curve;
+                if (CGAL::assign(curve, object)) {
+                    return true;
+                }
+            }
         }
     }
     return false;
@@ -126,47 +144,67 @@ void generate_motion_graph(const Polygon &F_i,
         }
     }
 
-    General_polygon_set gps = remove_start_target_configs(F_i, U);
-    std::vector <Polygon_with_holes> F_star;
+    General_polygon_set gps(F_i);
+    remove_start_target_configs(F_i, U, gps);
+    std::vector<Polygon_with_holes> F_star;
     gps.polygons_with_holes(std::back_inserter(F_star));
 
     // Add edges between vertices in H_i
     for (const Polygon_with_holes &F_star_i : F_star) {
-        std::vector <MotionGraphVertexDescriptor> B_i, H_i;
+        std::vector<MotionGraphVertexDescriptor> vertices;
         const Polygon &boundary = F_star_i.outer_boundary();
 
         typename boost::graph_traits<MotionGraph>::vertex_iterator vi, v_end;
-        for (boost::tie(vi, v_end) = boost::vertices(G_i);
-        vi != v_end;
-        ++vi) {
+        for (boost::tie(vi, v_end) = boost::vertices(G_i); vi != v_end; ++vi) {
             const MotionGraphVertexDescriptor &vd = *vi;
             const MotionGraphVertex &v = G_i[vd];
             const Configuration &configuration = *v.configuration;
             const Point &point = configuration.getPoint();
 
-            if (check_inside(point, boundary)) {
-                H_i.push_back(vd);
-            } else if (check_inside(point, F_i) && do_intersect(D<2>(point), boundary)) {
-                B_i.push_back(vd);
+            if (check_inside(point, boundary) || shared_boundary(D<2>(point), boundary)) {
+                vertices.push_back(vd);
             }
         }
 
-        for (const MotionGraphVertexDescriptor &b : B_i) {
-            for (const MotionGraphVertexDescriptor &h : H_i) {
-                boost::add_edge(b, h, G_i);
+        for (int i = 0; i < vertices.size(); i++) {
+            for (int j = 0; j < i; j++) {
+                boost::add_edge(vertices[i], vertices[j], G_i);
             }
         }
 
-        for (int i = 0; i < B_i.size(); i++) {
-            for (int j = 0; j < i; j++) {
-                boost::add_edge(B_i[i], B_i[j], G_i);
-            }
-        }
-        for (int i = 0; i < H_i.size(); i++) {
-            for (int j = 0; j < i; j++) {
-                boost::add_edge(H_i[i], H_i[j], G_i);
-            }
-        }
+//        std::vector<MotionGraphVertexDescriptor> B_i, H_i;
+//        const Polygon &boundary = F_star_i.outer_boundary();
+//
+//        typename boost::graph_traits<MotionGraph>::vertex_iterator vi, v_end;
+//        for (boost::tie(vi, v_end) = boost::vertices(G_i); vi != v_end; ++vi) {
+//            const MotionGraphVertexDescriptor &vd = *vi;
+//            const MotionGraphVertex &v = G_i[vd];
+//            const Configuration &configuration = *v.configuration;
+//            const Point &point = configuration.getPoint();
+//
+//            if (check_inside(point, boundary)) {
+//                H_i.push_back(vd);
+//            } else if (check_inside(point, F_i) && do_intersect(D<2>(point), boundary)) {
+//                B_i.push_back(vd);
+//            }
+//        }
+//
+//        for (const MotionGraphVertexDescriptor &b : B_i) {
+//            for (const MotionGraphVertexDescriptor &h : H_i) {
+//                boost::add_edge(b, h, G_i);
+//            }
+//        }
+//
+//        for (int i = 0; i < B_i.size(); i++) {
+//            for (int j = 0; j < i; j++) {
+//                boost::add_edge(B_i[i], B_i[j], G_i);
+//            }
+//        }
+//        for (int i = 0; i < H_i.size(); i++) {
+//            for (int j = 0; j < i; j++) {
+//                boost::add_edge(H_i[i], H_i[j], G_i);
+//            }
+//        }
     }
 }
 
@@ -178,12 +216,12 @@ MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
         return start;
     }
 
-    std::queue <MotionGraphVertexDescriptor> queue;
+    std::queue<MotionGraphVertexDescriptor> queue;
 
     typename boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
     for (boost::tie(vi, vi_end) = boost::vertices(graph);
-    vi != vi_end;
-    ++vi) {
+         vi != vi_end;
+         ++vi) {
         graph[*vi].visited = false;
         graph[*vi].predecessor = nullptr;
     }
@@ -217,7 +255,7 @@ MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
 
 class ST_Weight_Map {
 public:
-    typedef CORE::Expr value_type;
+    typedef Kernel::RT value_type;
     typedef const value_type &reference;
     typedef MotionGraphEdgeDescriptor key_type;
     typedef boost::readable_property_map_tag category;
@@ -260,7 +298,9 @@ public:
         boost::graph_traits<MotionGraph>::vertex_iterator g_i, g_end;
 
         int result = 0;
-        for (boost::tie(g_i, g_end) = boost::vertices(graph); g_i != g_end; ++g_i) {
+        for (boost::tie(g_i, g_end) = boost::vertices(graph);
+             g_i != g_end;
+             ++g_i) {
             const MotionGraphVertexDescriptor &vd = *g_i;
             if (graph[vd] == graph[key]) {
                 return result;
@@ -271,25 +311,25 @@ public:
     }
 
     explicit ST_Vertex_Index_Map(const MotionGraph &graph) : graph(graph) {}
+
 private:
     const MotionGraph &graph;
 };
 
 void solve_motion_graph(const MotionGraph &G_i,
-                        std::vector <Move> &moves) {
-    std::vector <MotionGraphEdgeDescriptor> spanning_tree;
+                        std::vector<Move> &moves) {
+    std::vector<MotionGraphEdgeDescriptor> spanning_tree;
     ST_Weight_Map weight_map(G_i);
     ST_Vertex_Index_Map vertex_index_map(G_i);
     boost::kruskal_minimum_spanning_tree(G_i, std::back_inserter(spanning_tree),
                                          boost::vertex_index_map(vertex_index_map).weight_map(weight_map));
 
+    // TODO: Optimize
     MotionGraph T_g;
     boost::graph_traits<MotionGraph>::vertex_iterator G_i_v, G_i_v_end;
-    for (boost::tie(G_i_v, G_i_v_end) = boost::vertices(G_i);
-    G_i_v != G_i_v_end;
-    ++G_i_v) {
-        MotionGraphVertexDescriptor mgvd = T_g.add_vertex();
-        T_g[mgvd] = G_i[*G_i_v];
+    for (boost::tie(G_i_v, G_i_v_end) = boost::vertices(G_i); G_i_v != G_i_v_end; ++G_i_v) {
+        MotionGraphVertexDescriptor vd = boost::add_vertex(T_g);
+        T_g[vd] = G_i[*G_i_v];
     }
 
     for (const MotionGraphEdgeDescriptor &e : spanning_tree) {
@@ -298,8 +338,8 @@ void solve_motion_graph(const MotionGraph &G_i,
 
         MotionGraphVertexDescriptor s, t;
         for (boost::tie(G_i_v, G_i_v_end) = boost::vertices(T_g);
-        G_i_v != G_i_v_end;
-        ++G_i_v) {
+             G_i_v != G_i_v_end;
+             ++G_i_v) {
             if (G_i[G_i_s] == (T_g[*G_i_v])) {
                 s = *G_i_v;
             }
@@ -391,8 +431,8 @@ void solve_motion_graph(const MotionGraph &G_i,
 
 class edge_weight_map {
 public:
+    typedef Kernel::RT value_type;
     typedef Arrangement::Halfedge_handle key_type;
-    typedef CORE::Expr value_type;
     typedef const value_type &reference;
     typedef boost::readable_property_map_tag category;
 
@@ -416,93 +456,14 @@ public:
     }
 
 private:
-    std::map <key_type, value_type> _map;
-};
-
-class Polygon_with_holes_curve_iterator {
-public:
-    class iterator {
-    private:
-        const Polygon_with_holes *pgn;
-        Polygon_with_holes::General_polygon_2::Curve_const_iterator c_iter;
-        Polygon_with_holes::Hole_const_iterator h_iter;
-        bool iterating_boundary;
-
-    public:
-        iterator() : pgn(nullptr), iterating_boundary(false) {
-
-        }
-
-        explicit iterator(const Polygon_with_holes &pgn) :
-                pgn(&pgn),
-                c_iter(pgn.outer_boundary().curves_begin()),
-                h_iter(pgn.holes_begin()),
-                iterating_boundary(true) {
-
-        }
-
-        iterator(const iterator &) = default;
-
-        iterator &operator++() {
-            // Increment curve pointer
-            c_iter++;
-
-            // If we're done with the boundary, start iterating holes
-            if (iterating_boundary && c_iter == pgn->outer_boundary().curves_end()) {
-                iterating_boundary = false;
-                if (h_iter != pgn->holes_end()) {
-                    c_iter = h_iter->curves_begin();
-                }
-            } else if (!iterating_boundary && c_iter == h_iter->curves_end()) {
-                h_iter++;
-                if (h_iter != pgn->holes_end()) {
-                    c_iter = h_iter->curves_begin();
-                }
-            }
-
-            if (h_iter == pgn->holes_end()) {
-                pgn = nullptr;
-            }
-
-            return *this;
-        }
-
-        const iterator operator++(int) {
-            iterator result(*this);
-            ++(*this);
-            return result;
-        }
-
-        constexpr bool operator!=(const iterator &that) const {
-            return pgn != that.pgn;
-        }
-
-        Polygon_with_holes::General_polygon_2::Curve_const_iterator::value_type operator*() const {
-            return *c_iter;
-        }
-    };
-
-private:
-    const Polygon_with_holes &pgn;
-
-public:
-    explicit Polygon_with_holes_curve_iterator(const Polygon_with_holes &pgn) : pgn(pgn) {}
-
-    iterator begin() {
-        return iterator(pgn);
-    }
-
-    iterator end() {
-        return iterator();
-    }
-
+    std::map<key_type, value_type> _map;
 };
 
 Line get_line(const Arrangement::Point_2 &p, const Arrangement::Point_2 &q) {
-    CORE::Expr Px = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
-    CORE::Expr Py = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
-    CORE::Expr Qx = q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root());
-    CORE::Expr Qy = q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root());
+    Kernel::RT Px = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
+    Kernel::RT Py = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
+    Kernel::RT Qx = q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root());
+    Kernel::RT Qy = q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root());
     return Line(Point(Px, Py), Point(Qx, Qy));
 }
 
@@ -511,24 +472,24 @@ Arrangement::X_monotone_curve_2 get_edge(const Arrangement::Point_2 &p, const Ar
     return Arrangement::X_monotone_curve_2(l, p, q);
 }
 
-CORE::Expr get_distance(const Arrangement::Point_2 &p, const Arrangement::Point_2 &q) {
-    CORE::Expr Px = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
-    CORE::Expr Py = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
-    CORE::Expr Qx = q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root());
-    CORE::Expr Qy = q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root());
+Kernel::RT get_distance(const Arrangement::Point_2 &p, const Arrangement::Point_2 &q) {
+    Kernel::RT Px = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
+    Kernel::RT Py = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
+    Kernel::RT Qx = q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root());
+    Kernel::RT Qy = q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root());
     auto diff_x = Px - Qx;
     auto diff_y = Py - Qy;
     return CGAL::sqrt(diff_x * diff_x + diff_y * diff_y);
 }
 
-CORE::Expr get_distance(const Arrangement::X_monotone_curve_2 &curve) {
+Kernel::RT get_distance(const Arrangement::X_monotone_curve_2 &curve) {
     if (curve.is_linear()) {
         return get_distance(curve.source(), curve.target());
     }
 
-    std::vector <std::pair<double, double>> polyline;
+    std::vector<std::pair<double, double>> polyline;
     curve.approximate(std::back_inserter(polyline), 10);
-    CORE::Expr r(0);
+    Kernel::RT r(0);
     for (int i = 1; i < polyline.size(); i++) {
         Arrangement::Point_2 p(polyline[i - 1].first, polyline[i - 1].second);
         Arrangement::Point_2 q(polyline[i].first, polyline[i].second);
@@ -540,12 +501,14 @@ CORE::Expr get_distance(const Arrangement::X_monotone_curve_2 &curve) {
 void get_tangent_points_on_circle(const Circle &circle, const Arrangement::Point_2 &p,
                                   Arrangement::Point_2 &s, Arrangement::Point_2 &t) {
     /// See: https://math.stackexchange.com/questions/543496/how-to-find-the-equation-of-a-line-tangent-a-circle-and-a-given-point-outside-of#answer-3190374
+    // TODO - This function takes way too long
+
     const Point &c = circle.center();
-    CORE::Expr Cx = c.x();
-    CORE::Expr Cy = c.y();
-    CORE::Expr r = CGAL::sqrt(circle.squared_radius());
-    CORE::Expr Px = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
-    CORE::Expr Py = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
+    Kernel::RT Cx = c.x();
+    Kernel::RT Cy = c.y();
+    Kernel::RT r = CGAL::sqrt(circle.squared_radius());
+    Kernel::RT Px = p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root());
+    Kernel::RT Py = p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root());
 
     auto dx = Px - Cx;
     auto dy = Py - Cy;
@@ -560,12 +523,12 @@ void get_tangent_points_on_circle(const Circle &circle, const Arrangement::Point
     auto T2x = Cx + ad * dx + bd * dy;
     auto T2y = Cy + ad * dy - bd * dx;
 
-    s = Arrangement::Point_2(T1x, T1y);
-    t = Arrangement::Point_2(T2x, T2y);
+    s.set(T1x, T1y);
+    t.set(T2x, T2y);
 }
 
 void get_tangent_point(const Arrangement::X_monotone_curve_2 &curve, const Arrangement::Point_2 &p,
-                       std::vector <std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
+                       std::vector<std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
     CGAL_assertion(curve.is_circular());
     const Circle &circle = curve.supporting_circle();
 
@@ -580,23 +543,23 @@ void get_tangent_point(const Arrangement::X_monotone_curve_2 &curve, const Arran
 }
 
 void get_tangent_points(const Arrangement::X_monotone_curve_2 &curve1, const Arrangement::X_monotone_curve_2 &curve2,
-                        std::vector <std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
+                        std::vector<std::pair<Arrangement::Point_2, Arrangement::Point_2>> &points) {
     CGAL_assertion(curve1.is_circular());
     CGAL_assertion(curve2.is_circular());
 
     const Circle &circle1 = curve1.supporting_circle();
     const Circle &circle2 = curve2.supporting_circle();
 
-    CORE::Expr r1 = CGAL::sqrt(circle1.squared_radius());
-    CORE::Expr r2 = CGAL::sqrt(circle2.squared_radius());
+    Kernel::RT r1 = CGAL::sqrt(circle1.squared_radius());
+    Kernel::RT r2 = CGAL::sqrt(circle2.squared_radius());
 
     const Point &c1 = circle1.center();
     const Point &c2 = circle2.center();
 
-    CORE::Expr C1x = c1.x();
-    CORE::Expr C1y = c1.y();
-    CORE::Expr C2x = c2.x();
-    CORE::Expr C2y = c2.y();
+    Kernel::RT C1x = c1.x();
+    Kernel::RT C1y = c1.y();
+    Kernel::RT C2x = c2.x();
+    Kernel::RT C2y = c2.y();
 
     const Arrangement::Point_2 C1(C1x, C1y);
     const Arrangement::Point_2 C2(C2x, C2y);
@@ -608,10 +571,10 @@ void get_tangent_points(const Arrangement::X_monotone_curve_2 &curve1, const Arr
         // Outer tangents
         const Circle circle3(circle1.center(), CGAL::square(r1 - r2));
         get_tangent_points_on_circle(circle3, C2, T1, T2);
-        CORE::Expr T1x = T1.x().a0() + T1.x().a1() * CGAL::sqrt(T1.x().root());
-        CORE::Expr T1y = T1.y().a0() + T1.y().a1() * CGAL::sqrt(T1.y().root());
-        CORE::Expr T2x = T2.x().a0() + T2.x().a1() * CGAL::sqrt(T2.x().root());
-        CORE::Expr T2y = T2.y().a0() + T2.y().a1() * CGAL::sqrt(T2.y().root());
+        Kernel::RT T1x = T1.x().a0() + T1.x().a1() * CGAL::sqrt(T1.x().root());
+        Kernel::RT T1y = T1.y().a0() + T1.y().a1() * CGAL::sqrt(T1.y().root());
+        Kernel::RT T2x = T2.x().a0() + T2.x().a1() * CGAL::sqrt(T2.x().root());
+        Kernel::RT T2y = T2.y().a0() + T2.y().a1() * CGAL::sqrt(T2.y().root());
         Point t1(T1x, T1y);
         Point t2(T2x, T2y);
 
@@ -702,146 +665,481 @@ void get_tangent_points(const Arrangement::X_monotone_curve_2 &curve1, const Arr
     }
 }
 
-void get_shortest_path(const Move &move,
-                       const Polygon &f,
-                       std::vector<const Configuration *> &robots) {
-    Polygon_with_holes pgn(f);
-    for (const Configuration *robot : robots) {
-        const Point &p = robot->getPoint();
-        if (p != move.first->getPoint() && p != move.second->getPoint() && check_inside(p, f)) {
-            pgn.add_hole(D<2>(robot->getPoint()));
-        }
-    }
-
-    Arrangement::Point_2 source(move.first->getPoint().x(), move.first->getPoint().y());
-    Arrangement::Point_2 target(move.second->getPoint().x(), move.second->getPoint().y());
-
-    Arrangement env;
-    Arrangement::Face_handle uf = env.unbounded_face();
-    Arrangement::Vertex_handle v = env.insert_in_face_interior(source, uf);
-    Arrangement::Vertex_handle w = env.insert_in_face_interior(target, uf);
-    edge_weight_map weight_map;
-
-    std::vector <std::pair<Arrangement::Point_2, Arrangement::Point_2>> points;
-    for (auto curve1 : Polygon_with_holes_curve_iterator(pgn)) {
-        for (auto curve2 : Polygon_with_holes_curve_iterator(pgn)) {
-            if (curve1.is_circular() && curve2.is_circular()) {
-                get_tangent_points(curve1, curve2, points);
-            } else if (curve1.is_circular()) {
-                Arrangement::Point_2 ps[] = {curve2.source(), curve2.target()};
-                for (const Arrangement::Point_2 &p : ps) {
-                    get_tangent_point(curve1, p, points);
-                }
-            } else if (curve2.is_circular()) {
-                Arrangement::Point_2 ps[] = {curve1.source(), curve1.target()};
-                for (const Arrangement::Point_2 &p : ps) {
-                    get_tangent_point(curve2, p, points);
-                }
-            } else {
-                Arrangement::Point_2 ps[] = {curve1.source(),
-                                             curve2.source(),
-                                             curve1.target(),
-                                             curve2.target()};
-                for (int i = 0; i < 4; i++) {
-                    Arrangement::Point_2 &p = ps[i];
-                    for (int j = 0; j < i; j++) {
-                        Arrangement::Point_2 &q = ps[j];
-                        points.emplace_back(p, q);
-                    }
-                }
-            }
-        }
-    }
-
-    for (std::pair <Arrangement::Point_2, Arrangement::Point_2> &ps : points) {
-        Arrangement::Point_2 &p = ps.first;
-        Arrangement::Point_2 &q = ps.second;
-        if (p == q) {
-            continue;
-        }
-        Arrangement::X_monotone_curve_2 s = get_edge(p, q);
-
-        bool valid = true;
-        for (const Arrangement::X_monotone_curve_2 &curve : Polygon_with_holes_curve_iterator(pgn)) {
-            if (!valid) {
-                break;
-            }
-
-            std::vector <CGAL::Object> objects;
-            curve.intersect(s, std::back_inserter(objects));
-
-            for (const CGAL::Object &obj : objects) {
-                Arrangement::X_monotone_curve_2::Intersection_point_2 i;
-                if (CGAL::assign(i, obj)) {
-                    Arrangement::Point_2 &r = i.first;
-                    if (r != p && r != q && r != curve.source() && r != curve.target()) {
-                        valid = false;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (valid) {
-            CORE::Expr dist = get_distance(p, q);
-
-            Arrangement::Halfedge_handle e = env.insert_in_face_interior(s, uf);
-            put(weight_map, e, dist);
-
-            for (const Arrangement::X_monotone_curve_2 &curve : Polygon_with_holes_curve_iterator(pgn)) {
-                Arrangement::X_monotone_curve_2 l, r;
-                if (curve.point_position(p) == CGAL::EQUAL) {
-                    curve.split(p, l, r);
-
-                    e = env.insert_in_face_interior(l, uf);
-                    put(weight_map, e, get_distance(l));
-
-                    e = env.insert_in_face_interior(r, uf);
-                    put(weight_map, e, get_distance(r));
-                }
-                if (curve.point_position(q) == CGAL::EQUAL) {
-                    curve.split(q, l, r);
-
-                    e = env.insert_in_face_interior(l, uf);
-                    put(weight_map, e, get_distance(l));
-
-                    e = env.insert_in_face_interior(r, uf);
-                    put(weight_map, e, get_distance(r));
-                }
-            }
-        }
-    }
-
-    CGAL::Arr_vertex_index_map<Arrangement> index_map(env);
-    boost::vector_property_map<CORE::Expr,
-            CGAL::Arr_vertex_index_map<Arrangement >> dist_map(env.number_of_vertices(), index_map);
-    boost::vector_property_map<Arrangement::Vertex_handle,
-            CGAL::Arr_vertex_index_map<Arrangement >> pred_map(env.number_of_vertices(), index_map);
-    boost::dijkstra_shortest_paths(env, v,
-                                   boost::vertex_index_map(index_map).
-                                           weight_map(weight_map).
-                                           distance_map(dist_map).
-                                           predecessor_map(pred_map));
-
-    std::vector <Arrangement::Vertex_handle> path;
-    Arrangement::Vertex_handle current = w;
-    while (current != v) {
-        path.push_back(current);
-        current = pred_map[current];
-    }
-    path.push_back(current);
-
-    for (auto p : path) {
-        std::cerr << p->point() << ", ";
-    }
-    std::cerr << std::endl;
-
+IntervisibilityGraphVertexDescriptor add_vertex(IntervisibilityGraph &graph, const Arrangement::Point_2 *p) {
+    IntervisibilityGraphVertexDescriptor d = boost::add_vertex(graph);
+    graph[d].p = p;
+    return d;
 }
 
-void simplify_moves(std::vector <Move> &moves) {
-    std::vector <Move> newMoves;
+IntervisibilityGraphEdgeDescriptor add_edge_linear(IntervisibilityGraph &graph,
+                                                   const IntervisibilityGraphVertexDescriptor &vdp,
+                                                   const IntervisibilityGraphVertexDescriptor &vdq) {
+    IntervisibilityGraphEdgeDescriptor e;
+    bool b;
 
-    std::vector <Move> simplified;
+    IntervisibilityGraphVertex &vp = graph[vdp];
+    IntervisibilityGraphVertex &vq = graph[vdq];
+
+    boost::tie(e, b) = boost::add_edge(vdp, vdq, graph);
+
+    if (b) {
+        const Arrangement::Point_2 &p = *(vp.p);
+        const Arrangement::Point_2 &q = *(vq.p);
+
+        Kernel::RT px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root()));
+        Kernel::RT py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root()));
+        Kernel::RT qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root()));
+        Kernel::RT qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root()));
+
+        graph[e].edge_weight = CGAL::sqrt((px - qx) * (px - qx)) + ((py - qy) * (py - qy));
+    }
+
+    return e;
+}
+
+IntervisibilityGraphEdgeDescriptor add_edge_circular(IntervisibilityGraph &graph,
+                                                     const IntervisibilityGraphVertexDescriptor &vp,
+                                                     const IntervisibilityGraphVertexDescriptor &vq,
+                                                     const Circle &circle) {
+    IntervisibilityGraphEdgeDescriptor e;
+    bool b;
+
+    const Arrangement::Point_2 &p = *(graph[vp].p);
+    const Arrangement::Point_2 &q = *(graph[vq].p);
+
+    boost::tie(e, b) = boost::add_edge(vp, vq, graph);
+
+    if (b) {
+#if defined(CGAL_EXACT_PREDICATES_EXACT_CONSTRUCTIONS_KERNEL_WITH_SQRT_H)
+        double px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root())).doubleValue();
+        double py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root())).doubleValue();
+        double qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root())).doubleValue();
+        double qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root())).doubleValue();
+        double cx = circle.center().x().doubleValue();
+        double cy = circle.center().y().doubleValue();
+#elif defined(CGAL_EXACT_PREDICATES_INEXACT_CONSTRUCTIONS_KERNEL_H)
+        double px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root()));
+        double py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root()));
+        double qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root()));
+        double qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root()));
+        double cx = circle.center().x();
+        double cy = circle.center().y();
+#elif defined (CGAL_SIMPLE_CARTESIAN_H)
+        double px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root()));
+        double py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root()));
+        double qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root()));
+        double qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root()));
+        double cx = circle.center().x();
+        double cy = circle.center().y();
+#endif
+        double angle = atan2(qy - cy, qx - cx) - atan2(py - cy, px - cx);
+        graph[e].edge_weight = Kernel::RT(angle * CGAL::sqrt(circle.squared_radius()));
+    }
+    return e;
+}
+
+//void add_edge_linear(IntervisibilityGraph &graph,
+//                     const Arrangement::Point_2 &p,
+//                     const Arrangement::Point_2 &q) {
+//    IntervisibilityGraphVertexDescriptor d1 = add_vertex(graph, p);
+//
+//    IntervisibilityGraphVertexDescriptor d2 = add_vertex(graph, q);
+//
+//    IntervisibilityGraphEdgeDescriptor e;
+//    bool b;
+//    boost::tie(e, b) = boost::add_edge(d1, d2, graph);
+//    if (b) {
+//        graph[e].edge_weight = get_distance(p, q);
+//    }
+//}
+//
+//void add_edge_circular(IntervisibilityGraph &graph,
+//                       const Arrangement::Point_2 &p,
+//                       const Arrangement::Point_2 &q,
+//                       const Circle &circle) {
+//    IntervisibilityGraphVertexDescriptor d1 = add_vertex(graph, p);
+//
+//    IntervisibilityGraphVertexDescriptor d2 = add_vertex(graph, q);
+//
+//    IntervisibilityGraphEdgeDescriptor e;
+//    bool b;
+//    boost::tie(e, b) = boost::add_edge(d1, d2, graph);
+//    if (b) {
+//#if defined(CGAL_EXACT_PREDICATES_EXACT_CONSTRUCTIONS_KERNEL_WITH_SQRT_H)
+//        double px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root())).doubleValue();
+//        double py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root())).doubleValue();
+//        double qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root())).doubleValue();
+//        double qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root())).doubleValue();
+//        double cx = circle.center().x().doubleValue();
+//        double cy = circle.center().y().doubleValue();
+//        double angle = atan2(qy - cy, qx - cx) - atan2(py - cy, px - cx);
+//#elif defined(CGAL_EXACT_PREDICATES_INEXACT_CONSTRUCTIONS_KERNEL_H)
+//        double px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root()));
+//        double py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root()));
+//        double qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root()));
+//        double qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root()));
+//        double cx = circle.center().x();
+//        double cy = circle.center().y();
+//        double angle = atan2(qy - cy, qx - cx) - atan2(py - cy, px - cx);
+//#elif defined (CGAL_SIMPLE_CARTESIAN_H)
+//        double px = (p.x().a0() + p.x().a1() * CGAL::sqrt(p.x().root()));
+//        double py = (p.y().a0() + p.y().a1() * CGAL::sqrt(p.y().root()));
+//        double qx = (q.x().a0() + q.x().a1() * CGAL::sqrt(q.x().root()));
+//        double qy = (q.y().a0() + q.y().a1() * CGAL::sqrt(q.y().root()));
+//        double cx = circle.center().x();
+//        double cy = circle.center().y();
+//        double angle = atan2(qy - cy, qx - cx) - atan2(py - cy, px - cx);
+//#endif
+//        graph[e].edge_weight = Kernel::RT(angle * CGAL::sqrt(circle.squared_radius()));
+//    }
+//}
+//
+//IntervisibilityGraphVertexDescriptor process_point(IntervisibilityGraph &graph,
+//                                                   const Polygon_with_holes &pgn,
+//                                                   const Arrangement::Point_2 &p) {
+//    IntervisibilityGraphVertexDescriptor result = add_vertex(graph, p);
+//
+//    for (auto target_curve : Polygon_with_holes_curve_iterator(pgn)) {
+//        const Arrangement::Point_2 &r = target_curve.source();
+//        if (p != r) {
+//            Arrangement::X_monotone_curve_2 pr = get_edge(p, r);
+//            bool intersects = false;
+//            for (auto intersecting_curve : Polygon_with_holes_curve_iterator(pgn)) {
+//                if (do_intersect(intersecting_curve, pr)) {
+//                    intersects = true;
+//                    break;
+//                }
+//            }
+//            if (!intersects) {
+//                // Add edge pr
+//                add_edge_linear(graph, p, r);
+//            }
+//        }
+//
+//
+//        const Arrangement::Point_2 &s = target_curve.target();
+//        if (p != s) {
+//            Arrangement::X_monotone_curve_2 ps = get_edge(p, s);
+//            bool intersects = false;
+//            for (auto intersecting_curve : Polygon_with_holes_curve_iterator(pgn)) {
+//                if (do_intersect(intersecting_curve, ps)) {
+//                    intersects = true;
+//                    break;
+//                }
+//            }
+//            if (!intersects) {
+//                // Add edge ps
+//                add_edge_linear(graph, p, s);
+//            }
+//        }
+//
+//    }
+//
+//    return result;
+//}
+
+class Intervisibility_vertex_index_map {
+public:
+    typedef int value_type;
+    typedef const value_type &reference;
+    typedef IntervisibilityGraphVertexDescriptor key_type;
+    typedef boost::readable_property_map_tag category;
+
+    friend value_type get(Intervisibility_vertex_index_map me, key_type key) {
+        auto iter = std::find(me.vertices.begin(), me.vertices.end(), key);
+        return iter - me.vertices.begin();
+    }
+
+    explicit Intervisibility_vertex_index_map(const std::vector<IntervisibilityGraphVertexDescriptor> &vertices)
+            : vertices(vertices) {}
+
+private:
+    const std::vector<IntervisibilityGraphVertexDescriptor> &vertices;
+};
+
+class Intervisibility_weight_map {
+public:
+    typedef Kernel::RT value_type;
+    typedef const value_type &reference;
+    typedef IntervisibilityGraphEdgeDescriptor key_type;
+    typedef boost::readable_property_map_tag category;
+
+    friend value_type get(Intervisibility_weight_map me, key_type key) {
+        return me.graph[key].edge_weight;
+    }
+
+    explicit Intervisibility_weight_map(const IntervisibilityGraph &graph) : graph(graph) {}
+
+private:
+    const IntervisibilityGraph &graph;
+};
+
+class Intervisibility_predecessor_map {
+public:
+    typedef IntervisibilityGraphVertexDescriptor key_type;
+    typedef IntervisibilityGraphVertexDescriptor value_type;
+    typedef const value_type &reference;
+    typedef boost::read_write_property_map_tag category;
+
+    friend value_type get(Intervisibility_predecessor_map me, key_type key) {
+        if (me._map.find(key) == me._map.end()) {
+            return key;
+        }
+        return me._map[key];
+    }
+
+    friend void put(Intervisibility_predecessor_map me, key_type key, value_type value) {
+        if (me._map.find(key) == me._map.end()) {
+            me._map.insert(std::make_pair(key, value));
+        } else {
+            me._map[key] = value;
+        }
+    }
+
+    reference operator[](key_type key) {
+        return _map[key];
+    }
+
+private:
+    std::map<key_type, value_type> _map;
+};
+
+bool intersect_inclusive(const Arrangement::X_monotone_curve_2 &curve1, const Arrangement::X_monotone_curve_2 &curve2) {
+    // TODO - Find new implementation. Intersect is SUPER slow
+    Arrangement::Point_2 tmp;
+    std::vector<CGAL::Object> objects;
+//    CircularKernel ck;
+//    CircularKernel::Do_intersect_2 doIntersect2 = ck.do_intersect_2_object();
+//    return doIntersect2(curve1, curve2);
+
+    curve1.intersect(curve2, std::back_inserter(objects));
+
+    for (auto object : objects) {
+        if (CGAL::assign(tmp, object)) {
+            if (!tmp.equals(curve1.source()) && !tmp.equals(curve1.target()) && !tmp.equals(curve2.source()) && !tmp.equals(curve2.target())) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool is_visible(const Arrangement::Point_2 &p, const Arrangement::Point_2 &q, const Polygon_with_holes &pgn) {
+    Arrangement::X_monotone_curve_2 edge = get_edge(p, q);
+    for (auto iter = pgn.outer_boundary().curves_begin(); iter != pgn.outer_boundary().curves_end(); ++iter) {
+//        if (intersect_inclusive(edge, *iter)) {
+//            return false;
+//        }
+    }
+    for (auto h_iter = pgn.holes_begin(); h_iter != pgn.holes_end(); ++h_iter) {
+        for (auto iter = h_iter->curves_begin(); iter != h_iter->curves_end(); ++iter) {
+//            if (intersect_inclusive(edge, *iter)) {
+//                return false;
+//            }
+        }
+    }
+
+    // TODO: Check if edge is inside pgn (and not inside pgn.holes)
+
+    return true;
+}
+
+void find_tangents(IntervisibilityGraph &graph,
+                   const IntervisibilityGraphVertexDescriptor &source_descriptor,
+                   const Arrangement::X_monotone_curve_2 &curve,
+                   std::vector<Arrangement::Point_2> &tangents,
+                   std::vector<IntervisibilityGraphVertexDescriptor> &vertex_index_map) {
+    const IntervisibilityGraphVertex &source = graph[source_descriptor];
+    const Arrangement::Point_2 &source_point = *source.p;
+
+    Arrangement::Point_2 t1, t2;
+    get_tangent_points_on_circle(curve.supporting_circle(), source_point, t1, t2);
+
+    const Arrangement::Point_2 &p = curve.source();
+    auto vip = std::find_if(vertex_index_map.begin(), vertex_index_map.end(),
+                            [&](IntervisibilityGraphVertexDescriptor vd) {
+                                return graph[vd].p->equals(p);
+                            });
+    CGAL_assertion(vip != vertex_index_map.end());
+    IntervisibilityGraphVertexDescriptor vdp = *vip;
+
+    const Arrangement::Point_2 &q = curve.source();
+    auto viq = std::find_if(vertex_index_map.begin(), vertex_index_map.end(),
+                            [&](IntervisibilityGraphVertexDescriptor vd) {
+                                return graph[vd].p->equals(q);
+                            });
+    CGAL_assertion(viq != vertex_index_map.end());
+    IntervisibilityGraphVertexDescriptor vdq = *viq;
+
+    if (curve.point_position(t1) == CGAL::EQUAL) {
+        tangents.emplace_back(t1);
+        IntervisibilityGraphVertexDescriptor vd = add_vertex(graph, &tangents.back());
+        vertex_index_map.push_back(vd);
+        add_edge_circular(graph, vdp, vd, curve.supporting_circle());
+        add_edge_circular(graph, vd, vdq, curve.supporting_circle());
+        add_edge_linear(graph, source_descriptor, vd);
+    }
+    if (curve.point_position(t2) == CGAL::EQUAL) {
+        tangents.emplace_back(t2);
+        IntervisibilityGraphVertexDescriptor vd = add_vertex(graph, &tangents.back());
+        vertex_index_map.push_back(vd);
+        add_edge_circular(graph, vdp, vd, curve.supporting_circle());
+        add_edge_circular(graph, vd, vdq, curve.supporting_circle());
+        add_edge_linear(graph, source_descriptor, vd);
+    }
+}
+
+void get_shortest_path(const Move &move,
+                       const Polygon &f,
+                       std::vector<std::reference_wrapper<Configuration>> &robots) {
+    Polygon_with_holes pgn(f);
+    for (std::reference_wrapper<Configuration> robot : robots) {
+        const Point &p = robot.get().getPoint();
+        if (p != move.first->getPoint() && p != move.second->getPoint() && check_inside(p, f)) {
+            pgn.add_hole(D<2>(robot.get().getPoint()));
+        }
+    }
+
+    IntervisibilityGraph graph;
+    std::vector<IntervisibilityGraphVertexDescriptor> vertex_index_map;
+    Arrangement::Point_2 s(move.first->getPoint().x(), move.first->getPoint().y());
+    IntervisibilityGraphVertexDescriptor source = add_vertex(graph, &s);
+    vertex_index_map.push_back(source);
+
+    Arrangement::Point_2 t(move.second->getPoint().x(), move.second->getPoint().y());
+    IntervisibilityGraphVertexDescriptor target = add_vertex(graph, &t);
+    vertex_index_map.push_back(target);
+
+    for (auto iter = pgn.outer_boundary().curves_begin(); iter != pgn.outer_boundary().curves_end(); ++iter) {
+        const Arrangement::Point_2 &p = iter->source();
+        auto vip = std::find_if(vertex_index_map.begin(), vertex_index_map.end(),
+                                [&](IntervisibilityGraphVertexDescriptor vd) {
+                                    return graph[vd].p->equals(p);
+                                });
+        IntervisibilityGraphVertexDescriptor vdp;
+        if (vip == vertex_index_map.end()) {
+            vdp = add_vertex(graph, &p);
+            vertex_index_map.push_back(vdp);
+        } else {
+            vdp = *vip;
+        }
+
+        const Arrangement::Point_2 &q = iter->target();
+        auto viq = std::find_if(vertex_index_map.begin(), vertex_index_map.end(),
+                                [&](IntervisibilityGraphVertexDescriptor vd) {
+                                    return graph[vd].p->equals(q);
+                                });
+        IntervisibilityGraphVertexDescriptor vdq;
+        if (viq == vertex_index_map.end()) {
+            vdq = add_vertex(graph, &q);
+            vertex_index_map.push_back(vdq);
+        } else {
+            vdq = *viq;
+        }
+
+        if (iter->is_linear()) {
+            add_edge_linear(graph, vdp, vdq);
+        } else {
+            add_edge_circular(graph, vdp, vdq, iter->supporting_circle());
+        }
+    }
+    for (auto h_iter = pgn.holes_begin(); h_iter != pgn.holes_end(); ++h_iter) {
+        for (auto iter = h_iter->curves_begin(); iter != h_iter->curves_end(); ++iter) {
+            const Arrangement::Point_2 &p = iter->source();
+            auto vip = std::find_if(vertex_index_map.begin(), vertex_index_map.end(),
+                                    [&](IntervisibilityGraphVertexDescriptor vd) {
+                                        return graph[vd].p->equals(p);
+                                    });
+            IntervisibilityGraphVertexDescriptor vdp;
+            if (vip == vertex_index_map.end()) {
+                vdp = add_vertex(graph, &p);
+                vertex_index_map.push_back(vdp);
+            } else {
+                vdp = *vip;
+            }
+
+            const Arrangement::Point_2 &q = iter->target();
+            auto viq = std::find_if(vertex_index_map.begin(), vertex_index_map.end(),
+                                    [&](IntervisibilityGraphVertexDescriptor vd) {
+                                        return graph[vd].p->equals(q);
+                                    });
+            IntervisibilityGraphVertexDescriptor vdq;
+            if (viq == vertex_index_map.end()) {
+                vdq = add_vertex(graph, &q);
+                vertex_index_map.push_back(vdq);
+            } else {
+                vdq = *viq;
+            }
+
+            if (iter->is_linear()) {
+                add_edge_linear(graph, vdp, vdq);
+            } else {
+                add_edge_circular(graph, vdp, vdq, iter->supporting_circle());
+            }
+        }
+    }
+
+    std::vector<Arrangement::Point_2> tangents;
+    for (int i = 0; i < vertex_index_map.size(); i++) {
+        const IntervisibilityGraphVertexDescriptor &vdi = vertex_index_map[i];
+        const IntervisibilityGraphVertex &vi = graph[vdi];
+
+        for (int j = 0; j < i; j++) {
+            const IntervisibilityGraphVertexDescriptor &vdj = vertex_index_map[j];
+            const IntervisibilityGraphVertex &vj = graph[vdj];
+
+            if (is_visible(*vi.p, *vj.p, pgn)) {
+                add_edge_linear(graph, vdi, vdj);
+            }
+        }
+
+        for (auto iter = pgn.outer_boundary().curves_begin(); iter != pgn.outer_boundary().curves_end(); ++iter) {
+            if (iter->is_circular()) {
+                find_tangents(graph, vdi, *iter, tangents, vertex_index_map);
+            }
+        }
+
+        for (auto h_iter = pgn.holes_begin(); h_iter != pgn.holes_end(); ++h_iter) {
+            for (auto iter = h_iter->curves_begin(); iter != h_iter->curves_end(); ++iter) {
+                if (iter->is_circular()) {
+                    find_tangents(graph, vdi, *iter, tangents, vertex_index_map);
+                }
+            }
+        }
+    }
+
+    boost::print_graph(graph, [&](IntervisibilityGraphVertexDescriptor vd) {
+        std::stringstream ss;
+        ss << "(" << *(graph[vd].p) << ")";
+        return ss.str();
+    });
+
+    Intervisibility_weight_map weight_map(graph);
+    Intervisibility_predecessor_map predecessor_map;
+    boost::dijkstra_shortest_paths(graph, source,
+                                   boost::vertex_index_map(Intervisibility_vertex_index_map(vertex_index_map))
+                                           .weight_map(weight_map)
+                                           .predecessor_map(predecessor_map)
+    );
+
+    std::list<const Arrangement::Point_2 *> path;
+    for (IntervisibilityGraphVertexDescriptor current = target;
+         current != nullptr; current = predecessor_map[current]) {
+        path.push_front(graph[current].p);
+    }
+    path.push_front(graph[source].p);
+
+
+    for (auto p : path) {
+        std::cerr << "(" << *p << "), ";
+    }
+    std::cerr << std::endl;
+}
+
+void simplify_moves(std::vector<Move> &moves) {
+    std::vector<Move> newMoves;
+
+    std::vector<Move> simplified;
     for (int i = 0; i < moves.size(); i++) {
         if (std::find(simplified.begin(), simplified.end(), moves[i]) != simplified.end()) {
             continue;

@@ -55,12 +55,31 @@ void FreeSpaceGraphicsItem::paint(QPainter *painter, const QStyleOptionGraphicsI
         for (auto iter = f.curves_begin(); iter != f.curves_end(); ++iter) {
             const Polygon::X_monotone_curve_2 &curve = *iter;
             const Polygon::Point_2 &source = curve.source();
+
+
+#if defined(CGAL_EXACT_PREDICATES_EXACT_CONSTRUCTIONS_KERNEL_WITH_SQRT_H)
             CORE::Expr sourceX = source.x().a0() + source.x().a1() * CGAL::sqrt(source.x().root());
             CORE::Expr sourceY = source.y().a0() + source.y().a1() * CGAL::sqrt(source.y().root());
 
             const Polygon::Point_2 &target = curve.target();
             CORE::Expr targetX = target.x().a0() + target.x().a1() * CGAL::sqrt(target.x().root());
             CORE::Expr targetY = target.y().a0() + target.y().a1() * CGAL::sqrt(target.y().root());
+#elif defined(CGAL_EXACT_PREDICATES_INEXACT_CONSTRUCTIONS_KERNEL_H)
+            Kernel::RT sourceX = source.x().a0() + source.x().a1() * CGAL::sqrt(source.x().root());
+            Kernel::RT sourceY = source.y().a0() + source.y().a1() * CGAL::sqrt(source.y().root());
+
+            const Polygon::Point_2 &target = curve.target();
+            Kernel::RT targetX = target.x().a0() + target.x().a1() * CGAL::sqrt(target.x().root());
+            Kernel::RT targetY = target.y().a0() + target.y().a1() * CGAL::sqrt(target.y().root());
+#elif defined(CGAL_SIMPLE_CARTESIAN_H)
+            double sourceX = source.x().a0() + source.x().a1() * CGAL::sqrt(source.x().root());
+            double sourceY = source.y().a0() + source.y().a1() * CGAL::sqrt(source.y().root());
+
+            const Polygon::Point_2 &target = curve.target();
+            double targetX = target.x().a0() + target.x().a1() * CGAL::sqrt(target.x().root());
+            double targetY = target.y().a0() + target.y().a1() * CGAL::sqrt(target.y().root());
+#endif
+
 
             if (curve.is_linear()) {
                 Point start(sourceX, sourceY);

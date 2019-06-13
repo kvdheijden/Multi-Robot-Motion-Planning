@@ -64,6 +64,13 @@ void ConfigurationSetGraphicsItem::paint(QPainter *painter, const QStyleOptionGr
         painter->setPen(QPen(Qt::black, .1));
         sprintf(label, "%c%u", config.isStart() ? 's' : 't', config.getIndex());
         painter->setFont(font);
+
+#if defined(CGAL_EXACT_PREDICATES_EXACT_CONSTRUCTIONS_KERNEL_WITH_SQRT_H)
         painter->drawText(QPointF(point.x().doubleValue(), point.y().doubleValue()), QString(label));
+#elif defined(CGAL_EXACT_PREDICATES_INEXACT_CONSTRUCTIONS_KERNEL_H)
+        painter->drawText(QPointF(point.x(), point.y()), QString(label));
+#elif defined(CGAL_SIMPLE_CARTESIAN_H)
+        painter->drawText(QPointF(point.x(), point.y()), QString(label));
+#endif
     }
 }

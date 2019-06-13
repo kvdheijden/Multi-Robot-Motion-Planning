@@ -11,8 +11,22 @@ struct MotionGraphVertex {
     bool visited;
     typename boost::graph_traits<boost::undirected_graph<>>::vertex_descriptor predecessor;
 
+    MotionGraphVertex &operator=(const MotionGraphVertex &that) {
+        if (this != &that) {
+            configuration = that.configuration;
+            hasPebble = that.hasPebble;
+            visited = that.visited;
+            predecessor = that.predecessor;
+        }
+        return *this;
+    }
+
     bool operator==(const MotionGraphVertex &that) const {
         return *(this->configuration) == *(that.configuration);
+    }
+
+    bool operator!=(const MotionGraphVertex &that) const {
+        return *(this->configuration) != *(that.configuration);
     }
 };
 

@@ -5,38 +5,20 @@
 #include "MotionGraph.h"
 
 struct InterferenceForestVertex {
-    MotionGraph *motionGraph;
+    MotionGraph motionGraph;
     const Polygon *freeSpaceComponent;
     bool visited;
 
     int index;
 
-    InterferenceForestVertex() :
-            motionGraph(new MotionGraph()),
-            freeSpaceComponent(nullptr),
-            visited(false) {
-
-    }
-
-    InterferenceForestVertex(const InterferenceForestVertex &other) :
-            motionGraph(new MotionGraph(*other.motionGraph)),
-            freeSpaceComponent(other.freeSpaceComponent),
-            visited(other.visited) {
-
-    }
-
-    InterferenceForestVertex &operator=(const InterferenceForestVertex &other) {
-        if (this != &other) {
-            delete motionGraph;
-            motionGraph = new MotionGraph(*other.motionGraph);
-            freeSpaceComponent = other.freeSpaceComponent;
-            visited = other.visited;
+    InterferenceForestVertex &operator=(const InterferenceForestVertex &that) {
+        if (this != &that) {
+            motionGraph = that.motionGraph;
+            freeSpaceComponent = that.freeSpaceComponent;
+            visited = that.visited;
+            index = that.index;
         }
         return *this;
-    }
-
-    ~InterferenceForestVertex() {
-        delete motionGraph;
     }
 };
 
