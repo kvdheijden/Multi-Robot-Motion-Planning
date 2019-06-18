@@ -59,14 +59,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow() 
 
     this->actionInsertNone->setChecked(true);
 
-    scene.setItemIndexMethod(QGraphicsScene::NoIndex);
-    scene.setSceneRect(-10, -10, 10, 10);
+//    scene.setItemIndexMethod(QGraphicsScene::NoIndex);
+//    scene.setSceneRect(0, 0, 50, 50);
 
     this->graphicsView->setScene(&scene);
     this->graphicsView->setMouseTracking(true);
     this->graphicsView->matrix().scale(1, -1);
 
-    QRectF bbox(-25, -25, 50, 50);
+    QRectF bbox(0, 0, 50, 50);
     this->graphicsView->setSceneRect(bbox);
     this->graphicsView->fitInView(bbox, Qt::KeepAspectRatio);
 }

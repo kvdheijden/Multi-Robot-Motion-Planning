@@ -23,11 +23,7 @@ struct IntervisibilityGraphVertex {
     }
 };
 
-struct IntervisibilityGraphEdge {
-    Kernel::RT edge_weight;
-};
-
-typedef boost::undirected_graph<IntervisibilityGraphVertex, IntervisibilityGraphEdge> IntervisibilityGraph;
+typedef boost::undirected_graph<IntervisibilityGraphVertex, boost::property<boost::edge_weight_t, Kernel::RT>> IntervisibilityGraph;
 
 typedef boost::graph_traits<IntervisibilityGraph>::vertex_descriptor IntervisibilityGraphVertexDescriptor;
 typedef boost::graph_traits<IntervisibilityGraph>::edge_descriptor IntervisibilityGraphEdgeDescriptor;
