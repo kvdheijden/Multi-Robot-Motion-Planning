@@ -53,3 +53,5 @@ target_link_libraries(mrmp ${QT_LIBRARIES} ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LI
 add_to_cached_list(CGAL_EXECUTABLE_TARGETS mrmp_test)
 target_compile_definitions(mrmp_test PUBLIC BOOST_TEST_DYN_LINK)
 target_link_libraries(mrmp_test ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(version_check test/version.cpp)

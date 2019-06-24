@@ -350,14 +350,14 @@ void MainWindow::on_actionSolve_triggered() {
 
     for (const Move &m : moves) {
         std::cerr << "Move robot at "
-                  << (m.first->isStart() ? "s" : "t") << m.first->getIndex()
+                  << (m.first.isStart() ? "s" : "t") << m.first.getIndex()
                   << " towards "
-                  << (m.second->isStart() ? "s" : "t") << m.second->getIndex()
+                  << (m.second.isStart() ? "s" : "t") << m.second.getIndex()
                   << std::endl;
     }
 
-    std::vector<std::reference_wrapper<Configuration>> robots;
-    for (Configuration &configuration : configurations) {
+    std::vector<std::reference_wrapper<const Configuration>> robots;
+    for (const Configuration &configuration : configurations) {
         if (configuration.isStart()) {
             robots.emplace_back(configuration);
         }
@@ -365,7 +365,7 @@ void MainWindow::on_actionSolve_triggered() {
 
     for (const Move &move : moves) {
         for (const Polygon &f : free_space) {
-            if (check_inside(move.first->getPoint(), f)) {
+            if (check_inside(move.first.getPoint(), f)) {
                 get_shortest_path(move, f, robots);
             }
         }

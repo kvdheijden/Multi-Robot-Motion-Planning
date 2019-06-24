@@ -37,7 +37,7 @@ static_assert(std::is_copy_constructible<MotionGraphVertex>(), "");
 typedef boost::property<boost::edge_weight_t, int> MotionGraphEdge;
 typedef boost::undirected_graph<MotionGraphVertex, MotionGraphEdge> MotionGraph;
 
-typedef std::pair<const Configuration *, const Configuration *> Move;
+typedef std::pair<const Configuration &, const Configuration &> Move;
 
 typedef boost::graph_traits<MotionGraph>::vertex_descriptor MotionGraphVertexDescriptor;
 typedef boost::graph_traits<MotionGraph>::edge_descriptor MotionGraphEdgeDescriptor;

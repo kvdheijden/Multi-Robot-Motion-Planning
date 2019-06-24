@@ -55,7 +55,7 @@ void solve_motion_graph(const MotionGraph &G_i,
 
 void get_shortest_path(const Move &move,
                        const Polygon &f,
-                       std::vector<std::reference_wrapper<Configuration>> &robots);
+                       std::vector<std::reference_wrapper<const Configuration>> &robots);
 
 void simplify_moves(std::vector<Move> &moves);
 

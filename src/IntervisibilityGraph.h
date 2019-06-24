@@ -23,11 +23,12 @@ struct IntervisibilityGraphVertex {
     }
 };
 
-typedef boost::undirected_graph<IntervisibilityGraphVertex, boost::property<boost::edge_weight_t, Kernel::RT>> IntervisibilityGraph;
+typedef boost::undirected_graph<IntervisibilityGraphVertex, boost::property<boost::edge_weight_t, double>> IntervisibilityGraph;
 
 typedef boost::graph_traits<IntervisibilityGraph>::vertex_descriptor IntervisibilityGraphVertexDescriptor;
 typedef boost::graph_traits<IntervisibilityGraph>::edge_descriptor IntervisibilityGraphEdgeDescriptor;
 
 typedef boost::graph_traits<IntervisibilityGraph>::vertex_iterator IntervisibilityGraphVertexIterator;
+typedef boost::graph_traits<IntervisibilityGraph>::edge_iterator IntervisibilityGraphEdgeIterator;
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_INTERVISIBILITYGRAPH_H
