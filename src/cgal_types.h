@@ -1,9 +1,8 @@
 #ifndef MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
 #define MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
 
-#include <CGAL/Exact_predicates_exact_constructions_kernel_with_sqrt.h>
-//#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-//#include <CGAL/Simple_cartesian.h>
+//#include <CGAL/Exact_predicates_exact_constructions_kernel_with_sqrt.h>
+#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Algebraic_kernel_for_circles_2_2.h>
 #include <CGAL/Circular_kernel_2.h>
 #include <CGAL/Polygon_2.h>
@@ -15,8 +14,6 @@
 typedef CGAL::Exact_predicates_exact_constructions_kernel_with_sqrt                         Kernel;
 #elif defined(CGAL_EXACT_PREDICATES_INEXACT_CONSTRUCTIONS_KERNEL_H)
 typedef CGAL::Exact_predicates_inexact_constructions_kernel                                 Kernel;
-#elif defined (CGAL_SIMPLE_CARTESIAN_H)
-typedef CGAL::Simple_cartesian<double>                                                      Kernel;
 #endif
 typedef CGAL::Algebraic_kernel_for_circles_2_2<Kernel::FT>                                  Algebraic_kernel;
 typedef CGAL::Circular_kernel_2<Kernel, Algebraic_kernel>                                   CircularKernel;
