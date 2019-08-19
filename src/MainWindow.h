@@ -17,6 +17,8 @@
 #include "ConfigurationSetGraphicsItem.h"
 #include "FreeSpace.h"
 #include "FreeSpaceGraphicsItem.h"
+#include "Path.h"
+#include "PathGraphicsItem.h"
 #include "InterferenceForest.h"
 
 class MainWindow : public QMainWindow, private Ui::MainWindow {
@@ -36,6 +38,11 @@ private:
 
     FreeSpace free_space;
     FreeSpaceGraphicsItem *fsg;
+
+    std::vector<Move> moves;
+
+    std::vector<Path> paths;
+    PathGraphicsItem *pg;
 
     InterferenceForest G;
 
@@ -65,6 +72,7 @@ public slots:
 
     void on_actionGenerateMotionGraph_triggered();
     void on_actionSolve_triggered();
+    void on_actionGetShortestPath_triggered();
 
     void on_actionRecenter_triggered();
 

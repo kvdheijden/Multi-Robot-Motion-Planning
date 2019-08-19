@@ -92,6 +92,7 @@
                 </property>
                 <addaction name="actionGenerateMotionGraph" />
                 <addaction name="actionSolve" />
+                <addaction name="actionGetShortestPath" />
             </widget>
             <widget class="QMenu" name="menuView">
                 <property name="title">
@@ -208,6 +209,14 @@
             </property>
             <property name="shortcut">
                 <string>Ctrl+S</string>
+            </property>
+        </action>
+        <action name="actionGetShortestPath">
+            <property name="text">
+                <string>&amp;Get shortest path</string>
+            </property>
+            <property name="shortcut">
+                <string>Ctrl+P</string>
             </property>
         </action>
 

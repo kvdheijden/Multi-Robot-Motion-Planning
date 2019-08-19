@@ -5,6 +5,15 @@ ConfigurationSet::ConfigurationSet() {
     next_target_index = 1;
 }
 
+ConfigurationSet::ConfigurationSet(std::vector<Point> &S, std::vector<Point> &T) : ConfigurationSet() {
+    for (Point &s : S) {
+        addSourceConfiguration(s);
+    }
+    for (Point &t : T) {
+        addTargetConfiguration(t);
+    }
+}
+
 ConfigurationSet::~ConfigurationSet() = default;
 
 void ConfigurationSet::addSourceConfiguration(Point &p) {

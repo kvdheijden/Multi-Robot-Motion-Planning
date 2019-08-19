@@ -32,6 +32,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), Ui::MainWindow() 
     );
     scene.addItem(fsg);
 
+    pg = new PathGraphicsItem(paths);
+    QObject::connect(
+            this, SIGNAL(changed()),
+            pg, SLOT(modelChanged())
+    );
+    scene.addItem(pg);
+
     // Setup GraphicsViewInputs
     wi = new CGAL::Qt::GraphicsViewPolylineInput<Kernel>(this, &scene);
     QObject::connect(
@@ -76,6 +83,7 @@ MainWindow::~MainWindow() {
     delete si;
     delete ti;
 
+    delete pg;
     delete fsg;
     delete cg;
     delete wg;
@@ -339,7 +347,7 @@ void MainWindow::on_actionSolve_triggered() {
     // If G has a cycle, L will not contain every vertex in G
     CGAL_assertion(boost::num_vertices(G) == L.size());
 
-    std::vector<Move> moves;
+    moves.clear();
     for (const InterferenceForestVertexDescriptor &n : L) {
         InterferenceForestVertex &v = G[n];
         MotionGraph &G_i = v.motionGraph;
@@ -355,7 +363,9 @@ void MainWindow::on_actionSolve_triggered() {
                   << (m.second.isStart() ? "s" : "t") << m.second.getIndex()
                   << std::endl;
     }
+}
 
+void MainWindow::on_actionGetShortestPath_triggered() {
     std::vector<std::reference_wrapper<const Configuration>> robots;
     for (const Configuration &configuration : configurations) {
         if (configuration.isStart()) {
@@ -363,13 +373,15 @@ void MainWindow::on_actionSolve_triggered() {
         }
     }
 
+    paths.clear();
     for (const Move &move : moves) {
         for (const Polygon &f : free_space) {
             if (check_inside(move.first.getPoint(), f)) {
-                get_shortest_path(move, f, robots);
+                get_shortest_path(move, f, robots, paths);
             }
         }
     }
+    emit(changed());
 }
 
 void MainWindow::on_actionRecenter_triggered() {

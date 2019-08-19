@@ -1,5 +1,2 @@
-Intervisibility graph creation:
- - Determining if point p is visibile from point q is REALLY slow (even after using do_intersect instead of intersect).
- - Creating tangent points is also really slow.
-   - Both problems might be due to the fact new objects are created to run the given functions.
- - Predecessors don't seem to work yet
+function is_visible
+function tangent_points_on_circle

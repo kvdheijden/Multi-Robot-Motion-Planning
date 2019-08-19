@@ -1,8 +1,8 @@
 #ifndef MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
 #define MULTI_ROBOT_MOTION_PLANNING_CGAL_TYPES_H
 
-//#include <CGAL/Exact_predicates_exact_constructions_kernel_with_sqrt.h>
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+#include <CGAL/Exact_predicates_exact_constructions_kernel_with_sqrt.h>
+//#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 #include <CGAL/Algebraic_kernel_for_circles_2_2.h>
 #include <CGAL/Circular_kernel_2.h>
 #include <CGAL/Polygon_2.h>
@@ -18,6 +18,8 @@ typedef CGAL::Exact_predicates_inexact_constructions_kernel                     
 typedef CGAL::Algebraic_kernel_for_circles_2_2<Kernel::FT>                                  Algebraic_kernel;
 typedef CGAL::Circular_kernel_2<Kernel, Algebraic_kernel>                                   CircularKernel;
 typedef CGAL::Polygon_2<Kernel>                                                             Workspace;
+typedef CGAL::Polygon_with_holes_2<Kernel>                                                  Workspace_with_holes;
+typedef CGAL::General_polygon_set_2<Kernel>                                                 General_workspace_set;
 typedef Kernel::Point_2                                                                     Point;
 typedef Kernel::Circle_2                                                                    Circle;
 typedef Kernel::Segment_2                                                                   Segment;

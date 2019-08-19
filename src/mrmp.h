@@ -6,6 +6,7 @@
 #include "ConfigurationSet.h"
 #include "FreeSpace.h"
 #include "MotionGraph.h"
+#include "Path.h"
 
 template<int n>
 Polygon D(const Point &p) {
@@ -46,6 +47,9 @@ bool do_intersect(const Polygon &pgn1,
 void generate_free_space(const Workspace &W,
                          FreeSpace &F);
 
+void generate_free_space(const Workspace_with_holes &W,
+                         FreeSpace &F);
+
 void generate_motion_graph(const Polygon &F_i,
                            const ConfigurationSet &configurations,
                            MotionGraph &G_i);
@@ -55,7 +59,8 @@ void solve_motion_graph(const MotionGraph &G_i,
 
 void get_shortest_path(const Move &move,
                        const Polygon &f,
-                       std::vector<std::reference_wrapper<const Configuration>> &robots);
+                       std::vector<std::reference_wrapper<const Configuration>> &robots,
+                       std::vector<Path> &paths);
 
 void simplify_moves(std::vector<Move> &moves);
 

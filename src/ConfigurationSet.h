@@ -16,6 +16,8 @@ private:
 
 public:
     ConfigurationSet();
+    ConfigurationSet(std::vector<Point> &S, std::vector<Point> &T);
+
     ~ConfigurationSet();
 
     void addSourceConfiguration(Point &p);
