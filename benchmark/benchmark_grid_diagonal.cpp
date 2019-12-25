@@ -4,7 +4,7 @@ static constexpr int NUM_POINTS = 12;
 static constexpr int NUM_WORKSPACE_POINTS = 4;
 
 int main(int argc, char *argv[]) {
-    std::vector<Point> S(
+    std::vector<Point> Sv(
             {Point(0.0, 12.0),
              Point(-3.0, 9.0),
              Point(3.0, 9.0),
@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
              Point(-3.0, -3.0),
              Point(-6.0, -6.0)}
     );
-    std::vector<Point> T(
+    std::vector<Point> Tv(
             {Point(0.0, -12.0),
              Point(3.0, -9.0),
              Point(-3.0, -9.0),

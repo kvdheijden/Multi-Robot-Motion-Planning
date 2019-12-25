@@ -1,19 +1,23 @@
 #include "../test/benchmark.h"
 
+#include <vector>
+#include "../src/cgal_types.h"
+
 static constexpr int NUM_POINTS = 26;
 static constexpr int NUM_WORKSPACE_POINTS = 28;
 
 int main(int argc, char *argv[]) {
-    std::vector<Point> S;
-    std::vector<Point> T;
+    std::vector<Point> Sv;
+    std::vector<Point> Tv;
 
     for (double x = 2.0; x <= 50.0; x += 4.0) {
         for (double y = 2.0; y <= 6.0; y += 4.0) {
-            S.emplace_back(Point(x, y));
-            T.emplace_back(Point(52.0 - x, 38.0 - y));
+            Sv.emplace_back(Point(x, y));
+            Tv.emplace_back(Point(52.0 - x, 38.0 - y));
         }
     }
 
+    double e = 0.001;
     Point W[NUM_WORKSPACE_POINTS] = {
             Point(0.0, 0.0),
             Point(52.0, 0.0),

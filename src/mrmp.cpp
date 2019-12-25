@@ -13,6 +13,7 @@
 #include <boost/graph/graph_utility.hpp>
 
 #include "IntervisibilityGraph.h"
+#include "interference_forest.h"
 
 std::string get(const std::function<std::string(void *)> &name,
                 void *vd) {
@@ -56,11 +57,11 @@ bool check_inside(const Point &point, const Polygon &polygon) {
 
 
 void generate_free_space(const Workspace &W, FreeSpace &F) {
-    Kernel::FT r(1);
     double eps = 0.0001; //std::numeric_limits<double>::epsilon();
+    Kernel::FT r(1 - eps);
 
     F.clear();
-    CGAL::approximated_inset_2(W, r, eps, std::back_inserter(F.container()));
+    CGAL::approximated_inset_2(W, r, eps, std::back_inserter(F));
 
     for (Polygon &f : F) {
         if (f.orientation() != CGAL::Orientation::COUNTERCLOCKWISE) {
@@ -195,51 +196,6 @@ void generate_motion_graph(const Polygon &F_i,
     }
 }
 
-MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
-                                               const MotionGraphVertexDescriptor &start,
-                                               const std::function<bool(MotionGraphVertexDescriptor)> &predicate) {
-
-    if (predicate(start)) {
-        return start;
-    }
-
-    std::queue<MotionGraphVertexDescriptor> queue;
-
-    typename boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
-    for (boost::tie(vi, vi_end) = boost::vertices(graph);
-         vi != vi_end;
-         ++vi) {
-        graph[*vi].visited = false;
-        graph[*vi].predecessor = nullptr;
-    }
-
-    graph[start].visited = true;
-    graph[start].predecessor = start;
-    queue.push(start);
-
-    while (!queue.empty()) {
-        MotionGraphVertexDescriptor u = queue.front();
-        queue.pop();
-
-        auto neighbours = boost::adjacent_vertices(u, graph);
-        for (auto target : boost::make_iterator_range(neighbours)) {
-            if (!graph[target].visited) {
-                graph[target].visited = true;
-                graph[target].predecessor = u;
-                queue.push(target);
-
-                if (predicate(target)) {
-                    return target;
-                }
-            }
-
-        }
-    }
-
-    CGAL_assertion(false);
-    return nullptr;
-}
-
 class ST_Weight_Map {
 public:
     typedef Kernel::RT value_type;
@@ -363,56 +319,20 @@ void solve_motion_graph(const MotionGraph &G_i,
 
         CGAL_assertion(v_j != v_end);
 
-        const MotionGraphVertexDescriptor &v = *v_j;
+        MotionGraphVertexDescriptor &v = *v_j;
         std::cerr << "Current leave: "
                   << (T_g[v].configuration->isStart() ? "s" : "t") + std::to_string(T_g[v].configuration->getIndex())
                   << std::endl;
 
-        const MotionGraphVertex &n = T_g[v];
+        bool processed = pebble_game_process(T_g, v, moves);
 
-        // Find closest pebble w with/without a pebble
-        MotionGraphVertexDescriptor w;
-        if (n.configuration->isStart()) {
-            w = find_shortest_path(T_g, v, [&](MotionGraphVertexDescriptor vd) {
-                return !T_g[vd].hasPebble;
-            });
-        } else {
-            w = find_shortest_path(T_g, v, [&](MotionGraphVertexDescriptor vd) {
-                return T_g[vd].hasPebble;
-            });
+        CGAL_assertion(T_g[v].hasPebble != T_g[v].configuration->isStart());
+
+        if (processed) {
+            // Remove vertex from T_g
+            boost::clear_vertex(v, T_g);
+            boost::remove_vertex(v, T_g);
         }
-
-        std::cerr << "Closest corresponding node: "
-                  << (T_g[w].configuration->isStart() ? "s" : "t") + std::to_string(T_g[w].configuration->getIndex())
-                  << std::endl;
-
-        for (MotionGraphVertexDescriptor current = w; current != v; current = T_g[current].predecessor) {
-            if (n.configuration->isStart()) {
-                MotionGraphVertex &target = T_g[current];
-                MotionGraphVertex &source = T_g[target.predecessor];
-
-                CGAL_assertion(source.hasPebble);
-                CGAL_assertion(!target.hasPebble);
-                source.hasPebble = false;
-                target.hasPebble = true;
-                moves.emplace_back(*source.configuration, *target.configuration);
-            } else {
-                MotionGraphVertex &source = T_g[current];
-                MotionGraphVertex &target = T_g[source.predecessor];
-
-                CGAL_assertion(source.hasPebble);
-                CGAL_assertion(!target.hasPebble);
-                source.hasPebble = false;
-                target.hasPebble = true;
-                moves.emplace_back(*source.configuration, *target.configuration);
-            }
-        }
-
-        CGAL_assertion(n.hasPebble != n.configuration->isStart());
-
-        // Remove vertex from T_g
-        boost::clear_vertex(v, T_g);
-        boost::remove_vertex(v, T_g);
 
         std::cerr << std::endl;
     }

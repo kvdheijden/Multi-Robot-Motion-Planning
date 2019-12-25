@@ -4,14 +4,14 @@ static constexpr int NUM_POINTS = 40;
 static constexpr int NUM_WORKSPACE_POINTS = 4;
 
 int main(int argc, char *argv[]) {
-    std::vector<Point> S;
-    std::vector<Point> T;
+    std::vector<Point> Sv;
+    std::vector<Point> Tv;
 
     double dim = 16.0, step = 4.0;
     double x = -dim, y = -dim;
     for (int i = 0; i < NUM_POINTS; i++) {
-        S.emplace_back(x, y);
-        T.emplace_back(-x, -y);
+        Sv.emplace_back(x, y);
+        Tv.emplace_back(-x, -y);
 
         x += step;
         if (x > dim) {

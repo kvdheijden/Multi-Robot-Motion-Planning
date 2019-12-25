@@ -20,6 +20,10 @@ struct InterferenceForestVertex {
         }
         return *this;
     }
+
+    std::string to_string() const {
+        return "G_" + std::to_string(index);
+    }
 };
 
 static_assert(std::is_default_constructible<InterferenceForestVertex>(), "");

@@ -4,7 +4,6 @@
 #include "cgal_types.h"
 
 #include "ConfigurationSet.h"
-#include "FreeSpace.h"
 #include "MotionGraph.h"
 #include "Path.h"
 
