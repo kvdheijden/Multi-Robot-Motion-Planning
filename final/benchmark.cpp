@@ -223,14 +223,9 @@ void benchmark(std::ostream &stream,
     std::cerr << "}" << std::endl;
 }
 
-int main(int argc, char *argv[]) {
-    (void) argc;
-    (void) argv;
-
+void run(const boost::filesystem::path &path, edge_weight_fcn e, solve_motion_graph_function s) {
     const std::regex r("n([0-9]+)_m([0-9]+)");
     std::smatch match;
-
-    const boost::filesystem::path path("/home/koen/Documents/datasets/grid/separation_3.900000");
 
     std::vector<boost::filesystem::path> v;
     for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(path))
@@ -256,7 +251,7 @@ int main(int argc, char *argv[]) {
     });
 
     std::string bench("benchmark_");
-    switch (solveMotionGraphFcn) {
+    switch (s) {
         case PEBBLE_GAME:
             bench += "pebble_";
             break;
@@ -264,9 +259,9 @@ int main(int argc, char *argv[]) {
             bench += "purple_";
             break;
         default:
-            return 1;
+            exit(1);
     }
-    switch (edgeWeightFcn) {
+    switch (e) {
         case CONSTANT:
             bench += "constant";
             break;
@@ -280,7 +275,7 @@ int main(int argc, char *argv[]) {
             bench += "geodesic";
             break;
         default:
-            return 1;
+            exit(1);
     }
     bench += ".csv";
 
@@ -300,8 +295,6 @@ int main(int argc, char *argv[]) {
         std::size_t n = std::stoi(match[1].str());
         std::size_t m = std::stoi(match[2].str());
 
-        if (m != 50) continue;
-
         std::cerr << "Starting benchmarking of " << x.filename() << std::endl;
 
         Workspace W;
@@ -310,21 +303,21 @@ int main(int argc, char *argv[]) {
         Point p;
         std::vector<Configuration> S, T;
         for (std::size_t i = 0; i < m; i++) {
-            const boost::filesystem::path s = x / ("s_" + std::to_string(i) + ".txt");
-            if (!boost::filesystem::is_regular_file(s)) {
-                std::cerr << "Failed to open " << s.filename() << " in " << x.filename() << std::endl;
+            const boost::filesystem::path s_i = x / ("s_" + std::to_string(i) + ".txt");
+            if (!boost::filesystem::is_regular_file(s_i)) {
+                std::cerr << "Failed to open " << s_i.filename() << " in " << x.filename() << std::endl;
                 break;
             }
-            const boost::filesystem::path t = x / ("t_" + std::to_string(i) + ".txt");
-            if (!boost::filesystem::is_regular_file(t)) {
-                std::cerr << "Failed to open " << t.filename() << " in " << x.filename() << std::endl;
+            const boost::filesystem::path t_i= x / ("t_" + std::to_string(i) + ".txt");
+            if (!boost::filesystem::is_regular_file(t_i)) {
+                std::cerr << "Failed to open " << t_i.filename() << " in " << x.filename() << std::endl;
                 break;
             }
 
-            boost::filesystem::ifstream(s) >> p;
+            boost::filesystem::ifstream(s_i) >> p;
             S.emplace_back(std::move(p), true, i);
 
-            boost::filesystem::ifstream(t) >> p;
+            boost::filesystem::ifstream(t_i) >> p;
             T.emplace_back(std::move(p), false, i);
         }
 
@@ -346,6 +339,42 @@ int main(int argc, char *argv[]) {
         stream << std::endl;
         std::cerr << "Done benchmarking of " << x.filename() << std::endl << std::endl;
     }
+}
+
+int main(int argc, char *argv[]) {
+    (void) argc;
+    (void) argv;
+
+    constexpr edge_weight_fcn E[] = {
+            CONSTANT,
+            EUCLIDEAN,
+            EUCLIDEAN_SQUARED,
+            GEODESIC
+    };
+    constexpr solve_motion_graph_function S[] = {
+            PEBBLE_GAME,
+            PURPLE_TREE
+    };
+
+    for (edge_weight_fcn e : E) {
+        for (solve_motion_graph_function s : S) {
+            run(boost::filesystem::path("/home/koen/Documents/datasets/random"), e, s);
+            run(boost::filesystem::path("/home/koen/Documents/datasets/grid"), e, s);
+            run(boost::filesystem::path("/home/koen/Documents/datasets/zigzag"), e, s);
+            for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(boost::filesystem::path("/home/koen/Documents/datasets/corridor"))) {
+                const boost::filesystem::path &p = entry.path();
+
+                if (p.filename_is_dot_dot() || p.filename_is_dot())
+                    continue;
+
+                if (boost::filesystem::is_directory(p)) {
+                    run(p, e, s);
+                }
+            }
+        }
+    }
+
+
 
     return EXIT_SUCCESS;
 }
