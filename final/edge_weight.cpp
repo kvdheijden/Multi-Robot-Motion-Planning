@@ -7,6 +7,7 @@
 #include <CGAL/Triangulation_2.h>
 #include <CGAL/Constrained_triangulation_face_base_2.h>
 #include <CGAL/Constrained_Delaunay_triangulation_2.h>
+#include <CGAL/draw_triangulation_2.h>
 
 #include <CGAL/boost/graph/graph_traits_Constrained_Delaunay_triangulation_2.h>
 #include <CGAL/boost/graph/dijkstra_shortest_paths.h>
@@ -112,6 +113,8 @@ static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &
                 Q.push(neighbor);
             } else if (fh->is_constrained(i)) {
                 info.in_domain = !neighborInfo.in_domain;
+            } else {
+                info.in_domain = neighborInfo.in_domain;
             }
         }
     }
@@ -179,27 +182,26 @@ static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &
     }
 }
 
-void edge_weight(MotionGraph &G_i, const Polygon &F_i) {
+void edge_weight(MotionGraph &G_i, const Polygon &F_i, edge_weight_fcn e) {
     WeightMap w = boost::get(boost::edge_weight, G_i);
 
     // Set edge weight
-    if constexpr (edgeWeightFcn == CONSTANT) {
+    if (e == CONSTANT) {
         edge_weight_constant(G_i, w);
-    } else if constexpr (edgeWeightFcn == EUCLIDEAN) {
+    } else if (e == EUCLIDEAN) {
         edge_weight_euclidean(G_i, w);
-    } else if constexpr (edgeWeightFcn == EUCLIDEAN_SQUARED) {
+    } else if (e == EUCLIDEAN_SQUARED) {
         edge_weight_euclidean_squared(G_i, w);
-    } else if constexpr (edgeWeightFcn == GEODESIC) {
+    } else if (e == GEODESIC) {
         edge_weight_geodesic(G_i, w, F_i);
     }
 }
 
-void edge_weight(InterferenceForest &G) {
+void edge_weight(InterferenceForest &G, edge_weight_fcn e) {
     InterferenceForestVertexIterator v_i, v_end;
     for (boost::tie(v_i, v_end) = boost::vertices(G); v_i != v_end; ++v_i) {
         MotionGraph &G_i = G[*v_i].motionGraph;
         const Polygon &F_i = *G[*v_i].freeSpaceComponent;
-
-        edge_weight(G_i, F_i);
+        edge_weight(G_i, F_i, e);
     }
 }

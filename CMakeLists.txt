@@ -11,8 +11,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror -Wall -Wextra")
 
 # CGAL and its components
-find_package(CGAL COMPONENTS Core Qt5 REQUIRED)
+find_package(CGAL REQUIRED COMPONENTS Core Qt5 PATHS "/home/koen/CGAL-4.14/build" NO_DEFAULT_PATH REQUIRED)
 include(${CGAL_USE_FILE})
+
+add_definitions(-DCGAL_USE_BASIC_VIEWER -DQT_NO_KEYWORDS)
+message("${CGAL_LIBRARIES};${CGAL_3RD_PARTY_LIBRARIES}")
 
 # Boost and its components
 find_package(Boost COMPONENTS filesystem unit_test_framework REQUIRED)
@@ -30,47 +33,23 @@ add_definitions(${Qt5Core_DEFINITIONS} ${Qt5Gui_DEFINITIONS})
 ## Add qrc files to end of list
 #qt5_add_resources(CGAL_Qt5_RESOURCE_FILES)
 
-add_executable(generate final/generate.cpp final/free_space.cpp final/motion_graph.cpp final/Configuration.cpp)
+add_library(generate final/free_space.cpp final/motion_graph.cpp final/Configuration.cpp)
 
-add_executable(benchmark final/benchmark.cpp final/free_space.cpp final/motion_graph.cpp final/Configuration.cpp final/edge_weight.cpp final/interference_forest.cpp)
-target_link_libraries(benchmark ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+add_executable(generate_1 final/generate_1.cpp)
+target_link_libraries(generate_1 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
 
-add_executable(draw final/draw.cpp final/free_space.cpp final/motion_graph.cpp final/Configuration.cpp)
-target_link_libraries(draw ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES} ${Qt5Core_LIBRARIES} ${Qt5Gui_LIBRARIES})
+add_executable(generate_2 final/generate_2.cpp)
+target_link_libraries(generate_2 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(generate_3 final/generate_3.cpp)
+target_link_libraries(generate_3 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(generate_4 final/generate_4.cpp)
+target_link_libraries(generate_4 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(benchmark final/benchmark.cpp final/edge_weight.cpp final/interference_forest.cpp)
+target_link_libraries(benchmark generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+
+add_executable(draw final/draw.cpp)
+target_link_libraries(draw generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES} ${Qt5Core_LIBRARIES} ${Qt5Gui_LIBRARIES})
 target_compile_definitions(draw PUBLIC ${Qt5Core_COMPILE_DEFINITIONS} ${Qt5Gui_COMPILE_DEFINITIONS})
-
-## Create the library and link it
-#add_library(mrmp
-#        src/Configuration.cpp
-#        src/ConfigurationSet.cpp
-##        src/FreeSpace.cpp
-#        src/edge_weight.cpp
-#        src/interference_forest.cpp
-#        src/motion_graph.cpp
-#        src/free_space.cpp
-#        src/mrmp.cpp)
-#
-#qt5_use_modules(mrmp Xml Script OpenGL Svg)
-#add_to_cached_list(CGAL_EXECUTABLE_TARGETS mrmp)
-#target_link_libraries(mrmp ${QT_LIBRARIES} ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
-#
-#add_executable(mrmp_gui
-#        src/main.cpp
-#        src/WorkspaceGraphicsItem.cpp
-#        src/ConfigurationSetGraphicsItem.cpp
-#        src/FreeSpaceGraphicsItem.cpp
-#        src/PathGraphicsItem.cpp
-#        src/MainWindow.cpp
-#        ${CGAL_Qt5_UI_FILES}
-#        ${CGAL_Qt5_RESOURCE_FILES}
-#        ${CGAL_Qt5_MOC_FILES})
-#target_link_libraries(mrmp_gui mrmp)
-#
-#add_library(mrmp_benchmark test/benchmark.cpp)
-#target_include_directories(mrmp_benchmark PRIVATE src)
-#target_link_libraries(mrmp_benchmark mrmp)
-#
-#file(GLOB BENCHMARKS /MainWindow.ui)
-#
-## Add qrc files to end of list
-#qt5_add_resources(CGAL_Qt5_RESOURCE_FILES)

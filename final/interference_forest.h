@@ -24,6 +24,6 @@ bool purple_tree_process(MotionGraph &T_g,
                          MotionGraphVertexDescriptor &v,
                          std::vector<Move> &moves);
 
-void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule);
+void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule, solve_motion_graph_function s = solveMotionGraphFcn);
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_INTERFERENCE_FOREST_H

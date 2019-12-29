@@ -13,11 +13,9 @@
 
 #include "cgal_types.h"
 
-constexpr int RADIUS = 5000;
-
 void paint_workspace(QPainter &painter, const Workspace &W) {
     CGAL::Qt::PainterOstream<Kernel> painterOstream(&painter);
-    painter.setPen(QPen(Qt::black, 5));
+    painter.setPen(QPen(Qt::black, .1));
     for (auto iter = W.vertices_begin(); iter != W.vertices_end(); ++iter) {
         painterOstream << *iter;
     }
@@ -28,19 +26,16 @@ void paint_workspace(QPainter &painter, const Workspace &W) {
 
 void paint_configurations(QPainter &painter, const std::vector<Point> &P, const QColor &color) {
     CGAL::Qt::PainterOstream<Kernel> painterOstream(&painter);
-    painter.setPen(QPen(color, 1));
+    painter.setPen(QPen(color, .1));
     painter.setBrush(QBrush(color));
     for (const Point &p : P) {
         painterOstream << Circle(p, Kernel::FT(1));
     }
 }
 
-int main(int argc, char *argv[]) {
-    QGuiApplication app(argc, argv);
+void draw(const boost::filesystem::path &path, int scale) {
     const std::regex r("n([0-9]+)_m([0-9]+)");
     std::smatch match;
-
-    const boost::filesystem::path path("/home/koen/Documents/datasets_r" + std::to_string(RADIUS));
 
     std::vector<boost::filesystem::path> v;
     for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(path))
@@ -106,34 +101,59 @@ int main(int argc, char *argv[]) {
             T.push_back(p);
         }
 
-        if (W.size() != n) {
+        if (static_cast<int>(W.size()) != n) {
             std::cout << "Invalid workspace size for " << x.filename() << std::endl;
             continue;
         }
-        if (S.size() != m) {
+        if (static_cast<int>(S.size()) != m) {
             std::cout << "Invalid starting configuration size for " << x.filename() << std::endl;
             continue;
         }
-        if (T.size() != m) {
+        if (static_cast<int>(T.size()) != m) {
             std::cout << "Invalid target configuration size for " << x.filename() << std::endl;
             continue;
         }
 
         const boost::filesystem::path img = x / "img.png";
+        CGAL::Bbox_2 bbox = W.bbox();
+        int xmin = scale * static_cast<int>(std::floor(bbox.xmin()));
+        int xmax = scale * static_cast<int>(std::ceil(bbox.xmax()));
+        int ymin = scale * static_cast<int>(std::floor(bbox.ymin()));
+        int ymax = scale * static_cast<int>(std::ceil(bbox.ymax()));
 
-        QImage image(2 * RADIUS, 2 * RADIUS, QImage::Format_RGB32);
+        std::cerr << xmin << ", " << xmax << " - " << ymin << ", " << ymax << std::endl;
+
+        QImage image(xmax - xmin, ymax - ymin, QImage::Format_RGB32);
         image.fill(Qt::white);
 
-        QPainter painter;
-        painter.begin(&image);
-        painter.translate(QPoint(RADIUS, RADIUS));
+        QPainter painter(&image);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.translate(-xmin, -ymin);
+        painter.scale(scale, scale);
         paint_workspace(painter, W);
         paint_configurations(painter, S, Qt::green);
         paint_configurations(painter, T, Qt::magenta);
-        painter.end();
 
         image.save(QString(img.c_str()), "PNG");
 
         std::cout << "Done drawing of " << x.filename() << std::endl << std::endl;
+    }
+}
+
+int main(int argc, char *argv[]) {
+    QGuiApplication app(argc, argv);
+
+    draw(boost::filesystem::path("/home/koen/Documents/datasets/random"), 2);
+    draw(boost::filesystem::path("/home/koen/Documents/datasets/grid"), 10);
+    draw(boost::filesystem::path("/home/koen/Documents/datasets/zigzag"), 10);
+    for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(boost::filesystem::path("/home/koen/Documents/datasets/corridor"))) {
+        const boost::filesystem::path &p = entry.path();
+
+        if (p.filename_is_dot_dot() || p.filename_is_dot())
+            continue;
+
+        if (boost::filesystem::is_directory(p)) {
+            draw(p, 10);
+        }
     }
 }

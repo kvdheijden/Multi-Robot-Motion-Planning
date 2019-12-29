@@ -52,28 +52,7 @@ bool check_inside(const Point &point, const Polygon &polygon) {
     return check_inside(point, arr);
 }
 
-//static bool shared_boundary(const Polygon& p1, const Polygon &p2)
-//{
-//    for (auto iter1 = p1.curves_begin(); iter1 != p1.curves_end(); ++iter1) {
-//        for (auto iter2 = p2.curves_begin(); iter2 != p2.curves_end(); ++iter2) {
-//            std::vector<CGAL::Object> objects;
-//            iter1->intersect(*iter2, std::back_inserter(objects));
-//            for (auto object : objects) {
-//                Polygon::X_monotone_curve_2 curve;
-//                if (CGAL::assign(curve, object)) {
-//                    return true;
-//                }
-//            }
-//        }
-//    }
-//    return false;
-//}
-
 static bool do_intersect(const Polygon &p1, const Polygon &p2) {
-    if (CGAL::do_intersect(p1, p2)) {
-        return true;
-    }
-
     for (auto c1 = p1.curves_begin(); c1 != p1.curves_end(); ++c1) {
         const Polygon::X_monotone_curve_2 &curve1 = *c1;
         for (auto c2 = p2.curves_begin(); c2 != p2.curves_end(); ++c2) {
@@ -86,7 +65,7 @@ static bool do_intersect(const Polygon &p1, const Polygon &p2) {
         }
     }
 
-    return false;
+    return CGAL::do_intersect(p1, p2);
 }
 
 void generate_motion_graph(const Polygon &F_i,
@@ -138,8 +117,6 @@ void generate_motion_graph(const Polygon &F_i,
 
             if (do_intersect(boundary, D<2>(point))) {
                 vertices.push_back(vd);
-            } else {
-                std::cout << "TEST" << std::endl;
             }
         }
 

@@ -22,7 +22,7 @@ constexpr enum edge_weight_fcn {
 #endif
 ;
 
-void edge_weight(MotionGraph &G_i, const Polygon &F_i);
-void edge_weight(InterferenceForest &G);
+void edge_weight(MotionGraph &G_i, const Polygon &F_i, edge_weight_fcn e = edgeWeightFcn);
+void edge_weight(InterferenceForest &G, edge_weight_fcn e = edgeWeightFcn);
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_EDGE_WEIGHT_H

@@ -221,7 +221,7 @@ bool purple_tree_process(MotionGraph &T_g, MotionGraphVertexDescriptor &v, std::
     }
 }
 
-void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule) {
+void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule, solve_motion_graph_function s) {
     std::vector<MotionGraphEdgeDescriptor> spanning_tree;
     VertexIndexMap vim = boost::get(boost::vertex_index, G_i);
     WeightMap wm = boost::get(boost::edge_weight, G_i);
@@ -240,9 +240,9 @@ void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule) {
         MotionGraphVertexDescriptor vd = get_leaf(G_i);
 
         bool remove;
-        if constexpr (solveMotionGraphFcn == PEBBLE_GAME) {
+        if (s == PEBBLE_GAME) {
             remove = pebble_game_process(G_i, vd, motionSchedule);
-        } else if constexpr (solveMotionGraphFcn == PURPLE_TREE) {
+        } else if (s == PURPLE_TREE) {
             remove = purple_tree_process(G_i, vd, motionSchedule);
         }
 

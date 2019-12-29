@@ -13,9 +13,7 @@
 #include "edge_weight.h"
 #include "timeit.h"
 
-#define SAVE_INTERMEDIATES
-
-constexpr int RADIUS = 5000;
+//#define SAVE_INTERMEDIATES
 
 static bool do_intersect(const Polygon::X_monotone_curve_2 &curve1, const Polygon::X_monotone_curve_2 &curve2) {
     std::list<CGAL::Object> objects;
@@ -72,7 +70,8 @@ void benchmark(std::ostream &stream,
             generate_motion_graph(F_i, S, T, G_i);
             std::chrono::duration<double> time = t2.elapsed();
             std::cerr << "[TIMEIT] Generate Motion graph: " << time.count() << " s." << std::endl;
-            stream << time.count() << ",";
+            std::cerr << "[COMPLEXITY] |V| = " << boost::num_vertices(G_i) << ", |E| = " << boost::num_edges(G_i) << std::endl;
+            stream << "(" << time.count() << "/" << boost::num_vertices(G_i) << "/" << boost::num_edges(G_i) << "),";
         }
         stream << "\",";
 
@@ -110,7 +109,8 @@ void benchmark(std::ostream &stream,
 
         std::chrono::duration<double> time = t1.elapsed();
         std::cerr << "[TIMEIT] Generate Interference Forest: " << time.count() << " s." << std::endl;
-        stream << time.count() << ",";
+        std::cerr << "[COMPLEXITY] |V| = " << boost::num_vertices(G) << ", |E| = " << boost::num_edges(G) << std::endl;
+        stream << "(" << time.count() << "/" << boost::num_vertices(G) << "/" << boost::num_edges(G) << "),";
     } while (false);
 
 #ifdef SAVE_INTERMEDIATES
@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
     const std::regex r("n([0-9]+)_m([0-9]+)");
     std::smatch match;
 
-    const boost::filesystem::path path("/home/koen/Documents/datasets_r" + std::to_string(RADIUS));
+    const boost::filesystem::path path("/home/koen/Documents/datasets/grid/separation_3.900000");
 
     std::vector<boost::filesystem::path> v;
     for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(path))
@@ -255,8 +255,37 @@ int main(int argc, char *argv[]) {
         return (na == nb) ? (ma < mb) : (na < nb);
     });
 
-    boost::filesystem::ofstream stream(path / "benchmark.csv");
-    stream << "n,m,genF,genGi,genG,edge,solveGi,solveG,total,result" << std::endl;
+    std::string bench("benchmark_");
+    switch (solveMotionGraphFcn) {
+        case PEBBLE_GAME:
+            bench += "pebble_";
+            break;
+        case PURPLE_TREE:
+            bench += "purple_";
+            break;
+        default:
+            return 1;
+    }
+    switch (edgeWeightFcn) {
+        case CONSTANT:
+            bench += "constant";
+            break;
+        case EUCLIDEAN:
+            bench += "euclidean";
+            break;
+        case EUCLIDEAN_SQUARED:
+            bench += "squared_euclidean";
+            break;
+        case GEODESIC:
+            bench += "geodesic";
+            break;
+        default:
+            return 1;
+    }
+    bench += ".csv";
+
+    boost::filesystem::ofstream stream(path / bench);
+    stream << "n,m,generateFreeSpace(seconds),generateMotionGraph(seconds/|V|/|E|),generateInterferenceForest(seconds/|V|/|E|),computeEdgeWeight(seconds),solveMotionGraph(seconds),solveInterferenceForest(seconds),Total(seconds),result" << std::endl;
     for (auto &&x : v) {
         const boost::filesystem::path w = x / "w.txt";
         if (!boost::filesystem::is_regular_file(w)) {
@@ -271,8 +300,7 @@ int main(int argc, char *argv[]) {
         std::size_t n = std::stoi(match[1].str());
         std::size_t m = std::stoi(match[2].str());
 
-        if (n != 1000)
-            continue;
+        if (m != 50) continue;
 
         std::cerr << "Starting benchmarking of " << x.filename() << std::endl;
 

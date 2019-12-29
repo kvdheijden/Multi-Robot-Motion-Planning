@@ -19,7 +19,6 @@ typedef CGAL::Algebraic_kernel_for_circles_2_2<Kernel::FT>                      
 typedef CGAL::Circular_kernel_2<Kernel, Algebraic_kernel>                                   CircularKernel;
 typedef CGAL::Polygon_2<Kernel>                                                             Workspace;
 typedef CGAL::Polygon_with_holes_2<Kernel>                                                  Workspace_with_holes;
-typedef CGAL::General_polygon_set_2<Kernel>                                                 General_workspace_set;
 typedef Kernel::Point_2                                                                     Point;
 typedef Kernel::Circle_2                                                                    Circle;
 typedef Kernel::Segment_2                                                                   Segment;
