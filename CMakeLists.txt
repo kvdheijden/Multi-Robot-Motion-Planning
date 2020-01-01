@@ -47,6 +47,9 @@ target_link_libraries(generate_3 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIB
 add_executable(generate_4 final/generate_4.cpp)
 target_link_libraries(generate_4 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
 
+add_executable(generate_5 final/generate_5.cpp)
+target_link_libraries(generate_5 generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
+
 add_executable(benchmark final/benchmark.cpp final/edge_weight.cpp final/interference_forest.cpp)
 target_link_libraries(benchmark generate ${CGAL_LIBRARIES} ${CGAL_3RD_PARTY_LIBRARIES} ${Boost_LIBRARIES})
 

@@ -83,7 +83,6 @@ void generate_motion_graph(const Polygon &F_i,
         if (check_inside(point, arr)) {
             MotionGraphVertexDescriptor v = boost::add_vertex(G_i);
             G_i[v].configuration = &s;
-            G_i[v].color = RED;
             G_i[v].hasPebble = true;
             const Polygon D2 = D<2>(point);
             gps.difference(D2);
@@ -95,7 +94,6 @@ void generate_motion_graph(const Polygon &F_i,
         if (check_inside(point, arr)) {
             MotionGraphVertexDescriptor v = boost::add_vertex(G_i);
             G_i[v].configuration = &t;
-            G_i[v].color = BLUE;
             G_i[v].hasPebble = false;
             const Polygon D2 = D<2>(point);
             gps.difference(D2);

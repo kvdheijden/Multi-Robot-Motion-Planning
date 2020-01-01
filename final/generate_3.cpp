@@ -8,10 +8,7 @@ int main(int argc, char *argv[]) {
     (void) argv;
 
     constexpr int M[] = {100}; // # of robots
-    constexpr int Z[] = {4, 9, 14, 19, 24, 29, 34, 39, 44, 49,
-                         54, 49, 64, 69, 74, 79, 84, 89, 94, 99,
-                         104, 109, 114, 119, 124, 129, 134, 139, 144,
-                         149}; // # of zig-zags, Workspace complexity = 6 + z * 6
+    constexpr int Z[] = {4, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99}; // # of zig-zags, Workspace complexity = 6 + z * 6
     const boost::filesystem::path base("/home/koen/Documents/datasets/zigzag");
     constexpr double separation = 4.;
 

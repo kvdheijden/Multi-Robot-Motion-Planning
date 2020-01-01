@@ -7,8 +7,8 @@ int main(int argc, char *argv[]) {
     (void) argc;
     (void) argv;
 
-    const std::vector<int> M = {
-        2, 5, 2, 4, 3
+    const std::vector<int> M = { // n = 6 * (m - 1) + 4
+        2, 5, 9, 10, 4, 3, 7
     };
 
     constexpr bool splits[] = {false, true};

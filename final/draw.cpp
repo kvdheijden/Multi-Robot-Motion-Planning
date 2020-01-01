@@ -26,7 +26,7 @@ void paint_workspace(QPainter &painter, const Workspace &W) {
 
 void paint_configurations(QPainter &painter, const std::vector<Point> &P, const QColor &color) {
     CGAL::Qt::PainterOstream<Kernel> painterOstream(&painter);
-    painter.setPen(QPen(color, .1));
+    painter.setPen(QPen(color, 0));
     painter.setBrush(QBrush(color));
     for (const Point &p : P) {
         painterOstream << Circle(p, Kernel::FT(1));
@@ -143,9 +143,9 @@ void draw(const boost::filesystem::path &path, int scale) {
 int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
 
-    draw(boost::filesystem::path("/home/koen/Documents/datasets/random"), 2);
-    draw(boost::filesystem::path("/home/koen/Documents/datasets/grid"), 10);
-    draw(boost::filesystem::path("/home/koen/Documents/datasets/zigzag"), 10);
+//    draw(boost::filesystem::path("/home/koen/Documents/datasets/random"), 2);
+//    draw(boost::filesystem::path("/home/koen/Documents/datasets/grid"), 10);
+//    draw(boost::filesystem::path("/home/koen/Documents/datasets/zigzag"), 10);
     for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(boost::filesystem::path("/home/koen/Documents/datasets/corridor"))) {
         const boost::filesystem::path &p = entry.path();
 
@@ -156,4 +156,5 @@ int main(int argc, char *argv[]) {
             draw(p, 10);
         }
     }
+//    draw(boost::filesystem::path("/home/koen/Documents/datasets/comb"), 10);
 }

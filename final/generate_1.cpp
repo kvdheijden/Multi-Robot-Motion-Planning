@@ -53,9 +53,9 @@ int main(int argc, char *argv[]) {
     (void) argc;
     (void) argv;
 
-    constexpr int R = 2500;
+    constexpr int R = 5000;
     constexpr int N[] = {1000}; // # of workspace points
-    constexpr int M[] = {1, 2, 3, 5, 8, 10, 20, 30, 50, 80, 100, 200, 300, 500}; // # of robots
+    constexpr int M[] = {1, 2, 3, 5, 8, 10, 20, 30, 50, 80, 100}; // # of robots
 
     const boost::filesystem::path base("/home/koen/Documents/datasets/random");
 

@@ -14,16 +14,14 @@ static MotionGraphVertexDescriptor get_leaf(MotionGraph &G_i) {
     MotionGraphVertexDescriptor vd = nullptr;
     for (boost::tie(v_i, v_end) = boost::vertices(G_i); v_i != v_end; ++v_i) {
         if (boost::degree(*v_i, G_i) <= 1) {
-            switch (G_i[*v_i].color) {
-                case PURPLE:
-                    return *v_i;
-                case RED:
-                    if (vd == nullptr)
-                        vd = *v_i;
-                    break;
-                case BLUE:
+            const MotionGraphVertex &v = G_i[*v_i];
+            if (v.configuration->isStart() != v.hasPebble) {
+                return *v_i;
+            } else if (v.hasPebble) {
+                if (vd == nullptr)
                     vd = *v_i;
-                    break;
+            } else {
+                vd = *v_i;
             }
         }
     }
@@ -33,8 +31,8 @@ static MotionGraphVertexDescriptor get_leaf(MotionGraph &G_i) {
 static void reset_motion_graph(MotionGraph &graph) {
     typename boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
     for (boost::tie(vi, vi_end) = boost::vertices(graph);
-         vi != vi_end;
-         ++vi) {
+    vi != vi_end;
+    ++vi) {
         graph[*vi].value = 0;
         graph[*vi].visited = false;
         graph[*vi].predecessor = nullptr;
@@ -63,7 +61,9 @@ static MotionGraphVertexDescriptor find_shortest_path(MotionGraph &graph,
         queue.pop();
 
         typename boost::graph_traits<MotionGraph>::out_edge_iterator e_i, e_end;
-        for (boost::tie(e_i, e_end) = boost::out_edges(u, graph); e_i != e_end; ++e_i) {
+        for (boost::tie(e_i, e_end) = boost::out_edges(u, graph);
+        e_i != e_end;
+        ++e_i) {
             const MotionGraphVertexDescriptor &target = boost::target(*e_i, graph);
             if (!graph[target].visited) {
                 graph[target].visited = true;
@@ -127,13 +127,11 @@ bool pebble_game_process(MotionGraph &T_g, MotionGraphVertexDescriptor &v, std::
 bool purple_tree_process(MotionGraph &T_g, MotionGraphVertexDescriptor &v, std::vector<Move> &moves) {
     MotionGraphVertex &n = T_g[v];
 
-    if (n.configuration->isStart()) {
-        // Purple leaf
-        if (!n.hasPebble) {
-            return true;
-        }
-
-        // Red leaf
+    if (n.configuration->isStart() != n.hasPebble) {
+        // Purple
+        return true;
+    } else if (n.hasPebble) {
+        // Red
         reset_motion_graph(T_g);
 
         // Get all leaves
@@ -162,20 +160,20 @@ bool purple_tree_process(MotionGraph &T_g, MotionGraphVertexDescriptor &v, std::
 
             // If we have 0 or 1 non-visited neighbours, compute value
             if (nvn == 0 || nvn == 1) {
-                T_g[vd].visited = true;
+                MotionGraphVertex &w = T_g[vd];
+                w.visited = true;
 
-                if (T_g[vd].configuration->isStart() && T_g[vd].hasPebble) {
-                    // Red
-                    T_g[vd].value = 1;
-                } else if (T_g[vd].configuration->isStart() || T_g[vd].hasPebble) {
-                    // Purple
-                    T_g[vd].value = 0;
+                if (w.configuration->isStart() != w.hasPebble) {
+                    w.value = 0;
+                } else if (w.hasPebble) {
+                    w.value = 1;
                 } else {
-                    // Blue
-                    T_g[vd].value = -1;
+                    w.value = -1;
                 }
 
-                for (boost::tie(ei, ei_end) = boost::out_edges(vd, T_g); ei != ei_end; ++ei) {
+                for (boost::tie(ei, ei_end) = boost::out_edges(vd, T_g);
+                ei != ei_end;
+                ++ei) {
                     CGAL_assertion(boost::source(*ei, T_g) == vd);
                     const MotionGraphVertexDescriptor next = boost::target(*ei, T_g);
                     if (T_g[next].visited) {
@@ -199,26 +197,118 @@ bool purple_tree_process(MotionGraph &T_g, MotionGraphVertexDescriptor &v, std::
         CGAL_assertion(false);
         return false;
     } else {
-        // Blue leaf
-        if (!n.hasPebble) {
-            // Find closest pebble
-            MotionGraphVertexDescriptor w = find_shortest_path(T_g, v, [&](MotionGraphVertexDescriptor vd) {
-                return T_g[vd].hasPebble;
-            });
+        // Blue
 
-            MotionGraphVertex &source = T_g[w];
-            MotionGraphVertex &target = T_g[v];
+        // Find closest pebble
+        MotionGraphVertexDescriptor w = find_shortest_path(T_g, v, [&](MotionGraphVertexDescriptor vd) {
+            return T_g[vd].hasPebble;
+        });
 
-            CGAL_assertion(source.hasPebble);
-            CGAL_assertion(!target.hasPebble);
-            source.hasPebble = false;
-            target.hasPebble = true;
-            Move m(*source.configuration, *target.configuration);
-            moves.push_back(m);
-        }
+        MotionGraphVertex &source = T_g[w];
+        MotionGraphVertex &target = T_g[v];
+
+        CGAL_assertion(source.hasPebble);
+        CGAL_assertion(!target.hasPebble);
+        source.hasPebble = false;
+        target.hasPebble = true;
+        Move m(*source.configuration, *target.configuration);
+        moves.push_back(m);
 
         return true;
     }
+
+//    if (n.configuration->isStart()) {
+//        // Purple leaf
+//        if (!n.hasPebble) {
+//            return true;
+//        }
+//
+//        // Red leaf
+//        reset_motion_graph(T_g);
+//
+//        // Get all leaves
+//        std::queue<MotionGraphVertexDescriptor> q;
+//        boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
+//        for (boost::tie(vi, vi_end) = boost::vertices(T_g); vi != vi_end; ++vi) {
+//            const MotionGraphVertexDescriptor &vd = *vi;
+//            if (boost::out_degree(vd, T_g) == 1) {
+//                // Leaf
+//                q.push(vd);
+//            }
+//        }
+//
+//        while (!q.empty()) {
+//            const MotionGraphVertexDescriptor &vd = q.front();
+//            q.pop();
+//
+//            // Count non-visited neighbours
+//            typename boost::graph_traits<MotionGraph>::out_edge_iterator ei_begin, ei, ei_end;
+//            boost::tie(ei_begin, ei_end) = boost::out_edges(vd, T_g);
+//            int nvn = std::count_if(ei_begin, ei_end, [&](MotionGraphEdgeDescriptor ed) {
+//                CGAL_assertion(boost::source(ed, T_g) == vd);
+//                MotionGraphVertexDescriptor next = boost::target(ed, T_g);
+//                return !T_g[next].visited;
+//            });
+//
+//            // If we have 0 or 1 non-visited neighbours, compute value
+//            if (nvn == 0 || nvn == 1) {
+//                T_g[vd].visited = true;
+//
+//                if (T_g[vd].configuration->isStart() && T_g[vd].hasPebble) {
+//                    // Red
+//                    T_g[vd].value = 1;
+//                } else if (T_g[vd].configuration->isStart() || T_g[vd].hasPebble) {
+//                    // Purple
+//                    T_g[vd].value = 0;
+//                } else {
+//                    // Blue
+//                    T_g[vd].value = -1;
+//                }
+//
+//                for (boost::tie(ei, ei_end) = boost::out_edges(vd, T_g); ei != ei_end; ++ei) {
+//                    CGAL_assertion(boost::source(*ei, T_g) == vd);
+//                    const MotionGraphVertexDescriptor next = boost::target(*ei, T_g);
+//                    if (T_g[next].visited) {
+//                        T_g[vd].value += T_g[next].value;
+//                    } else {
+//                        // The parent
+//                        T_g[vd].predecessor = next;
+//                        q.push(next);
+//                    }
+//                }
+//
+//                if (T_g[vd].value == 0) {
+//                    // Root, should not be the only tree with value 0 (though it will be the last one)
+//                    CGAL_assertion(T_g[vd].predecessor != nullptr);
+//                    boost::remove_edge(vd, T_g[vd].predecessor, T_g);
+//                    return false;
+//                }
+//            }
+//        }
+//
+//        CGAL_assertion(false);
+//        return false;
+//    } else {
+//        // Blue leaf
+//        if (!n.hasPebble) {
+//            // Find closest pebble
+//            MotionGraphVertexDescriptor w = find_shortest_path(T_g, v, [&](MotionGraphVertexDescriptor vd) {
+//                return T_g[vd].hasPebble;
+//            });
+//
+//            MotionGraphVertex &source = T_g[w];
+//            MotionGraphVertex &target = T_g[v];
+//
+//            CGAL_assertion(source.hasPebble);
+//            CGAL_assertion(!target.hasPebble);
+//            source.hasPebble = false;
+//            target.hasPebble = true;
+//            Move m(*source.configuration, *target.configuration);
+//            moves.push_back(m);
+//        }
+//
+//        return true;
+//    }
 }
 
 void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule, solve_motion_graph_function s) {
@@ -244,6 +334,8 @@ void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule, sol
             remove = pebble_game_process(G_i, vd, motionSchedule);
         } else if (s == PURPLE_TREE) {
             remove = purple_tree_process(G_i, vd, motionSchedule);
+        } else {
+            exit(EXIT_FAILURE);
         }
 
         if (remove) {

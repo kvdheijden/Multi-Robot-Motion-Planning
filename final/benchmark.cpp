@@ -43,7 +43,9 @@ void benchmark(std::ostream &stream,
                const Workspace &W,
                const std::vector<Configuration> &S,
                const std::vector<Configuration> &T,
-               const boost::filesystem::path &path) {
+               const boost::filesystem::path &path,
+               edge_weight_fcn e,
+               solve_motion_graph_function solver) {
     timeit timer;
 
     FreeSpace F;
@@ -166,7 +168,7 @@ void benchmark(std::ostream &stream,
         timeit t1;
 
         // Compute edge weights
-        edge_weight(G);
+        edge_weight(G, e);
         std::chrono::duration<double> time = t1.elapsed();
         std::cerr << "[TIMEIT] Generate Edge weights: " << time.count() << " s." << std::endl;
         stream << time.count() << ",";
@@ -191,7 +193,7 @@ void benchmark(std::ostream &stream,
             MotionGraph &G_i = v.motionGraph;
 
             timeit t2;
-            solve_motion_graph(G_i, motionSchedule);
+            solve_motion_graph(G_i, motionSchedule, solver);
             std::chrono::duration<double> time = t2.elapsed();
             std::cerr << "[TIMEIT] Solve Motion graph: " << time.count() << " s." << std::endl;
             stream << time.count() << ",";
@@ -335,7 +337,7 @@ void run(const boost::filesystem::path &path, edge_weight_fcn e, solve_motion_gr
         }
 
         stream << n << "," << m << ",";
-        benchmark(stream, W, S, T, x);
+        benchmark(stream, W, S, T, x, e, s);
         stream << std::endl;
         std::cerr << "Done benchmarking of " << x.filename() << std::endl << std::endl;
     }
@@ -371,6 +373,7 @@ int main(int argc, char *argv[]) {
                     run(p, e, s);
                 }
             }
+            run(boost::filesystem::path("/home/koen/Documents/datasets/comb"), e, s);
         }
     }
 

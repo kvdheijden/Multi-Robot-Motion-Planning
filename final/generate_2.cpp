@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
     (void) argc;
     (void) argv;
 
-    constexpr int M[] = {1, 2, 3, 5, 8, 10, 20, 30, 50, 80, 100, 200, 300, 500};
+    constexpr int M[] = {1, 2, 3, 5, 8, 10, 20, 30, 50, 80, 100};
     constexpr int n = 4;
 
     constexpr double separation = 4.;

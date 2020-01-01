@@ -14,7 +14,6 @@ struct MotionGraphVertex {
     const Configuration *configuration;
     bool hasPebble;
     int value;
-    Color color;
 
     bool visited;
     typename boost::graph_traits<boost::undirected_graph<>>::vertex_descriptor predecessor;
@@ -29,6 +28,16 @@ struct MotionGraphVertex {
         }
         return *this;
     }
+
+//    Color color() const {
+//        if (configuration->isStart() != hasPebble) {
+//            return PURPLE;
+//        } else if (hasPebble) {
+//            return RED;
+//        } else {
+//            return BLUE;
+//        }
+//    }
 
     bool operator==(const MotionGraphVertex &that) const {
         return *(this->configuration) == *(that.configuration);
