@@ -34,5 +34,6 @@ typedef boost::directed_graph<InterferenceForestVertex> InterferenceForest;
 typedef boost::graph_traits<InterferenceForest>::vertex_descriptor InterferenceForestVertexDescriptor;
 typedef boost::graph_traits<InterferenceForest>::edge_descriptor InterferenceForestEdgeDescriptor;
 typedef boost::graph_traits<InterferenceForest>::vertex_iterator InterferenceForestVertexIterator;
+typedef boost::graph_traits<InterferenceForest>::edge_iterator InterferenceForestEdgeIterator;
 
 #endif //MULTI_ROBOT_MOTION_PLANNING_INTERFERENCEFOREST_H

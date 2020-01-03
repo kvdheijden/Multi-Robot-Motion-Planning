@@ -326,6 +326,10 @@ void solve_motion_graph(MotionGraph &G_i, std::vector<Move> &motionSchedule, sol
             boost::remove_edge(*ei, G_i);
     }
 
+    if (boost::num_edges(G_i) != boost::num_vertices(G_i) - 1) {
+        std::cout << "[WARN] Spanning tree is not a spanning tree!" << std::endl;
+    }
+
     while (boost::num_vertices(G_i)) {
         MotionGraphVertexDescriptor vd = get_leaf(G_i);
 

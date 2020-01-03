@@ -13,7 +13,7 @@
 #include "edge_weight.h"
 #include "timeit.h"
 
-//#define SAVE_INTERMEDIATES
+#define SAVE_INTERMEDIATES
 
 static bool do_intersect(const Polygon::X_monotone_curve_2 &curve1, const Polygon::X_monotone_curve_2 &curve2) {
     std::list<CGAL::Object> objects;
@@ -115,6 +115,16 @@ void benchmark(std::ostream &stream,
         stream << "(" << time.count() << "/" << boost::num_vertices(G) << "/" << boost::num_edges(G) << "),";
     } while (false);
 
+    do {
+        timeit t1;
+
+        // Compute edge weights
+        edge_weight(G, e);
+        std::chrono::duration<double> time = t1.elapsed();
+        std::cerr << "[TIMEIT] Generate Edge weights: " << time.count() << " s." << std::endl;
+        stream << time.count() << ",";
+    } while (false);
+
 #ifdef SAVE_INTERMEDIATES
     InterferenceForestVertexIterator vj, vj_end;
     for (boost::tie(vj, vj_end) = boost::vertices(G); vj != vj_end; ++vj) {
@@ -128,33 +138,33 @@ void benchmark(std::ostream &stream,
 
             f << F_i;
             g << "graph G_" << std::to_string(G[vd].index) << " {" << std::endl;
-            boost::graph_traits<MotionGraph>::vertex_iterator vi, vi_end;
+            MotionGraphVertexIterator vi, vi_end;
             for (boost::tie(vi, vi_end) = boost::vertices(G_i); vi != vi_end; ++vi) {
                 const Configuration &c = *G_i[*vi].configuration;
                 g << "\t" << c.to_string() << "[color=\"" << (c.isStart() ? "green" : "purple") << "\"];" << std::endl;
             }
-            boost::graph_traits<MotionGraph>::edge_iterator ei, ei_end;
+            MotionGraphEdgeIterator ei, ei_end;
             for (boost::tie(ei, ei_end) = boost::edges(G_i); ei != ei_end; ++ei) {
                 const Configuration &source = *G_i[boost::source(*ei, G_i)].configuration;
                 const Configuration &target = *G_i[boost::target(*ei, G_i)].configuration;
-                g << "\t" << source.to_string() << " -- " << target.to_string() << ";" << std::endl;
+                g << "\t" << source.to_string() << " -- " << target.to_string() << "[label=\"" + std::to_string(CGAL::to_double(boost::get(boost::edge_weight, G_i, *ei))) + "\"];" << std::endl;
             }
             g << "}" << std::endl;
         }
 
         {
             boost::filesystem::ofstream g(path / ("G.dot"));
-            g << "graph G {" << std::endl;
-            boost::graph_traits<InterferenceForest>::vertex_iterator vi, vi_end;
+            g << "digraph G {" << std::endl;
+            InterferenceForestVertexIterator vi, vi_end;
             for (boost::tie(vi, vi_end) = boost::vertices(G); vi != vi_end; ++vi) {
                 const InterferenceForestVertex &v = G[*vi];
                 g << "\t" << v.to_string() << "[color=\"black\"];" << std::endl;
             }
-            boost::graph_traits<InterferenceForest>::edge_iterator ei, ei_end;
+            InterferenceForestEdgeIterator ei, ei_end;
             for (boost::tie(ei, ei_end) = boost::edges(G); ei != ei_end; ++ei) {
                 const InterferenceForestVertex &source = G[boost::source(*ei, G)];
                 const InterferenceForestVertex &target = G[boost::target(*ei, G)];
-                g << "\t" << source.to_string() << " -- " << target.to_string() << ";" << std::endl;
+                g << "\t" << source.to_string() << " -> " << target.to_string() << ";" << std::endl;
             }
             g << "}" << std::endl;
         }
@@ -164,16 +174,6 @@ void benchmark(std::ostream &stream,
 #endif
 
     std::vector<Move> motionSchedule;
-    do {
-        timeit t1;
-
-        // Compute edge weights
-        edge_weight(G, e);
-        std::chrono::duration<double> time = t1.elapsed();
-        std::cerr << "[TIMEIT] Generate Edge weights: " << time.count() << " s." << std::endl;
-        stream << time.count() << ",";
-    } while (false);
-
     do {
         timeit t1;
         stream << "\"";
@@ -348,9 +348,9 @@ int main(int argc, char *argv[]) {
     (void) argv;
 
     constexpr edge_weight_fcn E[] = {
-            CONSTANT,
-            EUCLIDEAN,
-            EUCLIDEAN_SQUARED,
+//            CONSTANT,
+//            EUCLIDEAN,
+//            EUCLIDEAN_SQUARED,
             GEODESIC
     };
     constexpr solve_motion_graph_function S[] = {
@@ -360,24 +360,22 @@ int main(int argc, char *argv[]) {
 
     for (edge_weight_fcn e : E) {
         for (solve_motion_graph_function s : S) {
-            run(boost::filesystem::path("/home/koen/Documents/datasets/random"), e, s);
-            run(boost::filesystem::path("/home/koen/Documents/datasets/grid"), e, s);
+//            run(boost::filesystem::path("/home/koen/Documents/datasets/random"), e, s);
+//            run(boost::filesystem::path("/home/koen/Documents/datasets/grid"), e, s);
             run(boost::filesystem::path("/home/koen/Documents/datasets/zigzag"), e, s);
-            for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(boost::filesystem::path("/home/koen/Documents/datasets/corridor"))) {
-                const boost::filesystem::path &p = entry.path();
-
-                if (p.filename_is_dot_dot() || p.filename_is_dot())
-                    continue;
-
-                if (boost::filesystem::is_directory(p)) {
-                    run(p, e, s);
-                }
-            }
-            run(boost::filesystem::path("/home/koen/Documents/datasets/comb"), e, s);
+//            for (const boost::filesystem::directory_entry &entry : boost::filesystem::directory_iterator(boost::filesystem::path("/home/koen/Documents/datasets/corridor"))) {
+//                const boost::filesystem::path &p = entry.path();
+//
+//                if (p.filename_is_dot_dot() || p.filename_is_dot())
+//                    continue;
+//
+//                if (boost::filesystem::is_directory(p)) {
+//                    run(p, e, s);
+//                }
+//            }
+//            run(boost::filesystem::path("/home/koen/Documents/datasets/comb"), e, s);
         }
     }
-
-
 
     return EXIT_SUCCESS;
 }

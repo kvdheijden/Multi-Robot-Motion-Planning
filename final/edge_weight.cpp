@@ -4,14 +4,14 @@
 #include <CGAL/Triangulation_vertex_base_with_id_2.h>
 #include <CGAL/Triangulation_face_base_with_info_2.h>
 #include <CGAL/Triangulation_data_structure_2.h>
-#include <CGAL/Triangulation_2.h>
 #include <CGAL/Constrained_triangulation_face_base_2.h>
 #include <CGAL/Constrained_Delaunay_triangulation_2.h>
 #include <CGAL/draw_triangulation_2.h>
 
 #include <CGAL/boost/graph/graph_traits_Constrained_Delaunay_triangulation_2.h>
 #include <CGAL/boost/graph/dijkstra_shortest_paths.h>
-#include <CGAL/Heat_method_3/Surface_mesh_geodesic_distances_3.h>
+#include <boost/graph/floyd_warshall_shortest.hpp>
+#include <boost/graph/johnson_all_pairs_shortest.hpp>
 
 #include <boost/graph/filtered_graph.hpp>
 #include <boost/function_output_iterator.hpp>
@@ -55,7 +55,7 @@ constexpr int sign(T val) {
 }
 
 static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &F_i) {
-    const Kernel::FT INIT(-1);
+    const Kernel::FT INIT(0);
 
     // Reset edge weight
     MotionGraphEdgeIterator ei, ei_end;
@@ -92,10 +92,12 @@ static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &
     // Insert the query points
     MotionGraphVertexIterator vi, vi_end;
     MotionGraphVertexDescriptor vd;
+    std::vector<CDT::Vertex_handle> vertices;
     for (boost::tie(vi, vi_end) = boost::vertices(G_i); vi != vi_end; ++vi) {
         vd = *vi;
         const Point &point = G_i[vd].configuration->getPoint();
-        cdt.insert(point);
+        CDT::Vertex_handle v = cdt.insert(point);
+        vertices.emplace_back(v);
     }
 
     // Compute whether faces are inside our outside of the polygon
@@ -148,23 +150,24 @@ static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &
     typedef boost::graph_traits<Polygon_triangulation>::vertex_descriptor vertex_descriptor;
     typedef boost::graph_traits<Polygon_triangulation>::vertex_iterator vertex_iterator;
 
-    typedef std::map<vertex_descriptor, int> VertexIndexMap;
-    typedef boost::associative_property_map<VertexIndexMap> VertexIdPropertyMap;
-    VertexIndexMap vertex_id_map;
-    VertexIdPropertyMap vertex_index_pmap(vertex_id_map);
-
     // Associate indices to vertices
     int index = 0;
     vertex_iterator vj, vj_end;
     for (boost::tie(vj, vj_end) = boost::vertices(triangulation); vj != vj_end; ++vj) {
-        vertex_id_map[*vj] = index++;
+        (*vj)->id() = index++;
     }
+
+    typedef boost::property_map<Polygon_triangulation, boost::vertex_index_t>::type VertexIdPropertyMap;
+    VertexIdPropertyMap vertex_index_pmap = boost::get(boost::vertex_index, triangulation);
+
+    typedef boost::property_map<Polygon_triangulation, boost::edge_weight_t>::type EdgeWeightPropertyMap;
+    EdgeWeightPropertyMap edge_weight_pmap = boost::get(boost::edge_weight, triangulation);
 
     std::vector<vertex_descriptor> predecessor(boost::num_vertices(triangulation));
     boost::iterator_property_map<std::vector<vertex_descriptor>::iterator, VertexIdPropertyMap> predecessor_pmap(
             predecessor.begin(), vertex_index_pmap);
 
-    std::vector<Kernel::FT> distance(boost::num_vertices(triangulation), std::numeric_limits<Kernel::FT>::max());
+    std::vector<Kernel::FT> distance(boost::num_vertices(triangulation));
     boost::iterator_property_map<std::vector<Kernel::FT>::iterator, VertexIdPropertyMap> distance_pmap(distance.begin(),
                                                                                                        vertex_index_pmap);
 
@@ -205,9 +208,21 @@ static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &
 //        }
 //    }
 
+    Kernel::FT inf = Kernel::FT(std::numeric_limits<double>::max());
+    Kernel::FT zero = Kernel::FT(0);
+//    int n = boost::num_vertices(triangulation);
+//    std::cout << "|V| = " << n << " - |E| = " << boost::num_edges(triangulation)
+//              << std::endl;
+//    std::vector<std::vector<Kernel::FT>> d(n, std::vector<Kernel::FT>(n));
+//    if (!boost::johnson_all_pairs_shortest_paths(triangulation, d,
+//                                                 boost::vertex_index_map(vertex_index_pmap)
+//                                                         .distance_inf(inf)
+//                                                         .distance_zero(zero))) {
+//        std::cout << "Negative weight cycle!" << std::endl;
+//    }
+
     for (boost::tie(vi, vi_end) = boost::vertices(G_i); vi != vi_end; ++vi) {
-        vd = *vi;
-        const Point &sourceP = G_i[vd].configuration->getPoint();
+        const Point &sourceP = G_i[*vi].configuration->getPoint();
 
         vertex_iterator wi, wi_end;
         boost::tie(wi, wi_end) = boost::vertices(triangulation);
@@ -216,23 +231,25 @@ static void edge_weight_geodesic(MotionGraph &G_i, WeightMap &w, const Polygon &
         });
 
         boost::dijkstra_shortest_paths(triangulation, source,
-                                       boost::vertex_index_map(vertex_index_pmap)
+                                       boost::weight_map(edge_weight_pmap)
+                                               .vertex_index_map(vertex_index_pmap)
                                                .predecessor_map(predecessor_pmap)
-                                               .distance_map(distance_pmap));
+                                               .distance_map(distance_pmap)
+                                               .distance_inf(inf)
+                                               .distance_zero(zero));
 
         typename boost::graph_traits<MotionGraph>::out_edge_iterator ej, ej_end;
-        for (boost::tie(ej, ej_end) = boost::out_edges(vd, G_i); ej != ej_end; ++ej) {
+        for (boost::tie(ej, ej_end) = boost::out_edges(*vi, G_i); ej != ej_end; ++ej) {
             MotionGraphEdgeDescriptor ed = *ej;
 
-            vd = boost::target(ed, G_i);
-            const Point &targetP = G_i[vd].configuration->getPoint();
+            const Point &targetP = G_i[boost::target(ed, G_i)].configuration->getPoint();
 
             boost::tie(wi, wi_end) = boost::vertices(triangulation);
             vertex_descriptor target = *std::find_if(wi, wi_end, [&](const vertex_descriptor &vd) {
                 return targetP == vd->point();
             });
 
-            boost::put(w, ed, CGAL::to_double(distance[vertex_id_map[target]]));
+            boost::put(w, ed, distance_pmap[target]);
         }
     }
 }
